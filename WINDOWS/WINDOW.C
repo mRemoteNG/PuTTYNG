@@ -672,20 +672,25 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     }
 
     {
-	int winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
+	int winmode;
 	int exwinmode = 0;
-	if (!cfg.scrollbar)
-	    winmode &= ~(WS_VSCROLL);
+	if (hwnd_parent != 0)
+		winmode = WS_CHILD | WS_TABSTOP | WS_VSCROLL;
+	else {
+	winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
 	if (cfg.resize_action == RESIZE_DISABLED)
 	    winmode &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
 	if (cfg.alwaysontop)
 	    exwinmode |= WS_EX_TOPMOST;
 	if (cfg.sunken_edge)
 	    exwinmode |= WS_EX_CLIENTEDGE;
+	}
+	if (!cfg.scrollbar)
+	    winmode &= ~(WS_VSCROLL);
 	hwnd = CreateWindowEx(exwinmode, appname, appname,
 			      winmode, CW_USEDEFAULT, CW_USEDEFAULT,
 			      guess_width, guess_height,
-			      NULL, NULL, inst, NULL);
+			      (HWND)hwnd_parent, NULL, inst, NULL);
     }
 
     /*
@@ -2191,7 +2196,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		    term_size(term, cfg.height, cfg.width, cfg.savelines);
 
 		/* Enable or disable the scroll bar, etc */
-		{
+		if (hwnd_parent == 0) {
 		    LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
 		    LONG nexflag, exflag =
 			GetWindowLongPtr(hwnd, GWL_EXSTYLE);
@@ -5429,6 +5434,7 @@ static void make_full_screen()
 	if (is_full_screen())
 		return;
 	
+	if (hwnd_parent == 0) {
     /* Remove the window furniture. */
     style = GetWindowLongPtr(hwnd, GWL_STYLE);
     style &= ~(WS_CAPTION | WS_BORDER | WS_THICKFRAME);
@@ -5437,6 +5443,7 @@ static void make_full_screen()
     else
 	style &= ~WS_VSCROLL;
     SetWindowLongPtr(hwnd, GWL_STYLE, style);
+	}
 
     /* Resize ourselves to exactly cover the nearest monitor. */
 	get_fullscreen_rect(&ss);
@@ -5466,6 +5473,7 @@ static void clear_full_screen()
 
     /* Reinstate the window furniture. */
     style = oldstyle = GetWindowLongPtr(hwnd, GWL_STYLE);
+	if (hwnd_parent == 0) {
     style |= WS_CAPTION | WS_BORDER;
     if (cfg.resize_action == RESIZE_DISABLED)
         style &= ~WS_THICKFRAME;
@@ -5481,6 +5489,7 @@ static void clear_full_screen()
 		     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
 		     SWP_FRAMECHANGED);
     }
+	}
 
     /* Untick the menu item in the System and context menus. */
     {

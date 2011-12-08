@@ -166,7 +166,12 @@ int cmdline_process_param(char *p, char *value, int need_save, Config *cfg)
 {
     int ret = 0;
 
-    if (!strcmp(p, "-load")) {
+    if (!stricmp(p, "-hwndparent")) {
+	RETURN(2);
+	hwnd_parent = atoi(value);
+	return 2;
+	}
+	if (!strcmp(p, "-load")) {
 	RETURN(2);
 	/* This parameter must be processed immediately rather than being
 	 * saved. */
