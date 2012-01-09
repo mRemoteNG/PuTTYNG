@@ -714,6 +714,7 @@ GLOBAL int loaded_session;
 GLOBAL char *cmdline_session_name;
 
 GLOBAL int hwnd_parent;
+#define IsZoomed(hWnd) TRUE
 
 struct RSAKey;			       /* be a little careful of scope */
 

@@ -675,7 +675,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	int winmode;
 	int exwinmode = 0;
 	if (hwnd_parent != 0)
-		winmode = WS_CHILD | WS_TABSTOP | WS_VSCROLL;
+	    winmode = WS_POPUP | WS_VSCROLL;
 	else {
 	winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
 	if (cfg.resize_action == RESIZE_DISABLED)
@@ -690,7 +690,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	hwnd = CreateWindowEx(exwinmode, appname, appname,
 			      winmode, CW_USEDEFAULT, CW_USEDEFAULT,
 			      guess_width, guess_height,
-			      (HWND)hwnd_parent, NULL, inst, NULL);
+			      NULL, NULL, inst, NULL);
+
+	SetParent(hwnd, (HWND)hwnd_parent); // Focus doesn't work correctly if this is passed into CreateWindow, so set it separately.
     }
 
     /*
@@ -2767,6 +2769,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	sys_cursor_update();
 	break;
       case WM_SIZE:
+	if (hwnd_parent != 0)
+	{
+	    wParam = SIZE_MAXIMIZED;
+	    was_zoomed = 0;
+	}
+
 #ifdef RDB_DEBUG_PATCH
 	debug((27, "WM_SIZE %s (%d,%d)",
 		(wParam == SIZE_MINIMIZED) ? "SIZE_MINIMIZED":
@@ -5335,6 +5343,8 @@ void refresh_window(void *frontend)
  */
 void set_zoomed(void *frontend, int zoomed)
 {
+    if (hwnd_parent != 0) return;
+
     if (IsZoomed(hwnd)) {
         if (!zoomed)
 	    ShowWindow(hwnd, SW_RESTORE);
@@ -5429,12 +5439,13 @@ static void make_full_screen()
     DWORD style;
 	RECT ss;
 
+    if (hwnd_parent != 0) return;
+
     assert(IsZoomed(hwnd));
 
 	if (is_full_screen())
 		return;
 	
-	if (hwnd_parent == 0) {
     /* Remove the window furniture. */
     style = GetWindowLongPtr(hwnd, GWL_STYLE);
     style &= ~(WS_CAPTION | WS_BORDER | WS_THICKFRAME);
@@ -5443,7 +5454,6 @@ static void make_full_screen()
     else
 	style &= ~WS_VSCROLL;
     SetWindowLongPtr(hwnd, GWL_STYLE, style);
-	}
 
     /* Resize ourselves to exactly cover the nearest monitor. */
 	get_fullscreen_rect(&ss);
@@ -5471,9 +5481,10 @@ static void clear_full_screen()
 {
     DWORD oldstyle, style;
 
+    if (hwnd_parent != 0) return;
+
     /* Reinstate the window furniture. */
     style = oldstyle = GetWindowLongPtr(hwnd, GWL_STYLE);
-	if (hwnd_parent == 0) {
     style |= WS_CAPTION | WS_BORDER;
     if (cfg.resize_action == RESIZE_DISABLED)
         style &= ~WS_THICKFRAME;
@@ -5489,7 +5500,6 @@ static void clear_full_screen()
 		     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
 		     SWP_FRAMECHANGED);
     }
-	}
 
     /* Untick the menu item in the System and context menus. */
     {
@@ -5504,6 +5514,8 @@ static void clear_full_screen()
  */
 static void flip_full_screen()
 {
+    if (hwnd_parent != 0) return;
+
     if (is_full_screen()) {
 	ShowWindow(hwnd, SW_RESTORE);
     } else if (IsZoomed(hwnd)) {
