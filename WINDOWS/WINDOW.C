@@ -202,6 +202,11 @@ static int compose_state = 0;
 
 static UINT wm_mousewheel = WM_MOUSEWHEEL;
 
+#ifdef PUTTYNG
+HWND hwnd_parent_main = NULL;
+HWND hwnd_last_active = NULL;
+#endif
+
 /* Dummy routine, only required in plink. */
 void ldisc_update(void *frontend, int echo, int edit)
 {
@@ -674,9 +679,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     {
 	int winmode;
 	int exwinmode = 0;
+#ifdef PUTTYNG
 	if (hwnd_parent != 0)
 	    winmode = WS_POPUP | WS_VSCROLL;
 	else {
+#endif // PUTTYNG
 	winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
 	if (cfg.resize_action == RESIZE_DISABLED)
 	    winmode &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
@@ -692,7 +699,13 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 			      guess_width, guess_height,
 			      NULL, NULL, inst, NULL);
 
-	SetParent(hwnd, (HWND)hwnd_parent); // Focus doesn't work correctly if this is passed into CreateWindow, so set it separately.
+#ifdef PUTTYNG
+	if (hwnd_parent != 0)
+	{
+	    SetParent(hwnd, (HWND)hwnd_parent); // Focus doesn't work correctly if this is passed into CreateWindow, so set it separately.
+	    hwnd_parent_main = GetAncestor((HWND)hwnd_parent, GA_ROOTOWNER); // the top level ancestor of hwnd_parent
+	}
+#endif // PUTTYNG
     }
 
     /*
@@ -2198,7 +2211,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		    term_size(term, cfg.height, cfg.width, cfg.savelines);
 
 		/* Enable or disable the scroll bar, etc */
+#ifdef PUTTYNG
 		if (hwnd_parent == 0) {
+#endif
 		    LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
 		    LONG nexflag, exflag =
 			GetWindowLongPtr(hwnd, GWL_EXSTYLE);
@@ -2251,7 +2266,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 			init_lvl = 2;
 		    }
+#ifdef PUTTYNG
 		}
+#endif // PUTTYNG
 
 		/* Oops */
 		if (cfg.resize_action == RESIZE_DISABLED && IsZoomed(hwnd)) {
@@ -2480,6 +2497,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		wp = wParam; lp = lParam;
 		last_mousemove = WM_MOUSEMOVE;
 	    }
+
+#ifdef PUTTYNG
+	    {
+    		GUITHREADINFO thread_info;
+		thread_info.cbSize = sizeof(thread_info);
+		GetGUIThreadInfo(NULL, &thread_info);
+		hwnd_last_active = thread_info.hwndActive;
+	    }
+#endif // PUTTYNG
 	}
 	/*
 	 * Add the mouse position and message time to the random
@@ -2636,6 +2662,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 	net_pending_errors();
 	return 0;
+#ifdef PUTTYNG
+      case WM_MOUSEACTIVATE:
+	if (hwnd_parent != 0 && hwnd_last_active != hwnd_parent_main)
+	    BringWindowToTop(hwnd_parent_main);
+#endif // PUTTYNG
       case WM_SETFOCUS:
 	term_set_focus(term, TRUE);
 	CreateCaret(hwnd, caretbm, font_width, font_height);
@@ -2768,12 +2799,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_MOVE:
 	sys_cursor_update();
 	break;
+#ifdef PUTTYNG
       case WM_SIZE:
 	if (hwnd_parent != 0)
 	{
 	    wParam = SIZE_MAXIMIZED;
 	    was_zoomed = 0;
 	}
+#endif // PUTTYNG
 
 #ifdef RDB_DEBUG_PATCH
 	debug((27, "WM_SIZE %s (%d,%d)",
@@ -5343,7 +5376,9 @@ void refresh_window(void *frontend)
  */
 void set_zoomed(void *frontend, int zoomed)
 {
+#ifdef PUTTYNG
     if (hwnd_parent != 0) return;
+#endif // PUTTYNG
 
     if (IsZoomed(hwnd)) {
         if (!zoomed)
@@ -5439,7 +5474,9 @@ static void make_full_screen()
     DWORD style;
 	RECT ss;
 
+#ifdef PUTTYNG
     if (hwnd_parent != 0) return;
+#endif // PUTTYNG
 
     assert(IsZoomed(hwnd));
 
@@ -5481,7 +5518,9 @@ static void clear_full_screen()
 {
     DWORD oldstyle, style;
 
+#ifdef PUTTYNG
     if (hwnd_parent != 0) return;
+#endif // PUTTYNG
 
     /* Reinstate the window furniture. */
     style = oldstyle = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -5514,7 +5553,9 @@ static void clear_full_screen()
  */
 static void flip_full_screen()
 {
+#ifdef PUTTYNG
     if (hwnd_parent != 0) return;
+#endif // PUTTYNG
 
     if (is_full_screen()) {
 	ShowWindow(hwnd, SW_RESTORE);
