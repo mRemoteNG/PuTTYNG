@@ -34,3 +34,4 @@ _ReSharper*/
 *.map
 *.res
 *.rsp
+*.ipch
