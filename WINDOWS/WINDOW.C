@@ -335,6 +335,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     hinst = inst;
     hwnd = NULL;
+#ifdef PUTTYNG
+    term = NULL; // Make sure that term is initialized to NULL before the window is created so that we can check for it later
+#endif // PUTTYNG
     flags = FLAG_VERBOSE | FLAG_INTERACTIVE;
 
     sk_init();
@@ -676,30 +679,16 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     }
 
     {
-#ifdef PUTTYNG
-	int winmode;
-#else
 	int winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
-#endif // PUTTYNG
 	int exwinmode = 0;
 	if (!cfg.scrollbar)
 	    winmode &= ~(WS_VSCROLL);
-#ifdef PUTTYNG
-	if (hwnd_parent != 0)
-	    winmode = WS_POPUP | WS_VSCROLL;
-	else {
-	winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
-#endif // PUTTYNG
 	if (cfg.resize_action == RESIZE_DISABLED)
 	    winmode &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
 	if (cfg.alwaysontop)
 	    exwinmode |= WS_EX_TOPMOST;
 	if (cfg.sunken_edge)
 	    exwinmode |= WS_EX_CLIENTEDGE;
-#ifdef PUTTYNG
-	}
-	term = NULL; // Make sure that term is initialized to NULL before the window is created so that we can check for it later
-#endif // PUTTYNG
 	hwnd = CreateWindowEx(exwinmode, appname, appname,
 			      winmode, CW_USEDEFAULT, CW_USEDEFAULT,
 			      guess_width, guess_height,
