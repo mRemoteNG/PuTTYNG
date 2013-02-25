@@ -201,7 +201,6 @@ static char *window_name, *icon_name;
 static int compose_state = 0;
 
 static UINT wm_mousewheel = WM_MOUSEWHEEL;
-
 #ifdef PUTTYNG
 HWND hwnd_parent_main = NULL;
 HWND hwnd_last_active = NULL;
@@ -677,28 +676,33 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     }
 
     {
+#ifdef PUTTYNG
 	int winmode;
+#else
+	int winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
+#endif // PUTTYNG
 	int exwinmode = 0;
+	if (!cfg.scrollbar)
+	    winmode &= ~(WS_VSCROLL);
 #ifdef PUTTYNG
 	if (hwnd_parent != 0)
 	    winmode = WS_POPUP | WS_VSCROLL;
 	else {
-#endif // PUTTYNG
 	winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
+#endif // PUTTYNG
 	if (cfg.resize_action == RESIZE_DISABLED)
 	    winmode &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
 	if (cfg.alwaysontop)
 	    exwinmode |= WS_EX_TOPMOST;
 	if (cfg.sunken_edge)
 	    exwinmode |= WS_EX_CLIENTEDGE;
+#ifdef PUTTYNG
 	}
-	if (!cfg.scrollbar)
-	    winmode &= ~(WS_VSCROLL);
+#endif // PUTTYNG
 	hwnd = CreateWindowEx(exwinmode, appname, appname,
 			      winmode, CW_USEDEFAULT, CW_USEDEFAULT,
 			      guess_width, guess_height,
 			      NULL, NULL, inst, NULL);
-
 #ifdef PUTTYNG
 	if (hwnd_parent != 0)
 	{
@@ -2211,8 +2215,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		    term_size(term, cfg.height, cfg.width, cfg.savelines);
 
 		/* Enable or disable the scroll bar, etc */
+		{
 #ifdef PUTTYNG
-		if (hwnd_parent == 0) {
+		    if (hwnd_parent == 0) {
 #endif
 		    LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
 		    LONG nexflag, exflag =
@@ -2267,8 +2272,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 			init_lvl = 2;
 		    }
 #ifdef PUTTYNG
-		}
+		    }
 #endif // PUTTYNG
+		}
 
 		/* Oops */
 		if (cfg.resize_action == RESIZE_DISABLED && IsZoomed(hwnd)) {
@@ -2497,7 +2503,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		wp = wParam; lp = lParam;
 		last_mousemove = WM_MOUSEMOVE;
 	    }
-
 #ifdef PUTTYNG
 	    {
     		GUITHREADINFO thread_info;
@@ -2799,15 +2804,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_MOVE:
 	sys_cursor_update();
 	break;
-#ifdef PUTTYNG
       case WM_SIZE:
+#ifdef PUTTYNG
 	if (hwnd_parent != 0)
 	{
 	    wParam = SIZE_MAXIMIZED;
 	    was_zoomed = 0;
 	}
 #endif // PUTTYNG
-
 #ifdef RDB_DEBUG_PATCH
 	debug((27, "WM_SIZE %s (%d,%d)",
 		(wParam == SIZE_MINIMIZED) ? "SIZE_MINIMIZED":
@@ -5379,7 +5383,6 @@ void set_zoomed(void *frontend, int zoomed)
 #ifdef PUTTYNG
     if (hwnd_parent != 0) return;
 #endif // PUTTYNG
-
     if (IsZoomed(hwnd)) {
         if (!zoomed)
 	    ShowWindow(hwnd, SW_RESTORE);
@@ -5473,7 +5476,6 @@ static void make_full_screen()
 {
     DWORD style;
 	RECT ss;
-
 #ifdef PUTTYNG
     if (hwnd_parent != 0) return;
 #endif // PUTTYNG
@@ -5517,7 +5519,6 @@ static void make_full_screen()
 static void clear_full_screen()
 {
     DWORD oldstyle, style;
-
 #ifdef PUTTYNG
     if (hwnd_parent != 0) return;
 #endif // PUTTYNG
@@ -5556,7 +5557,6 @@ static void flip_full_screen()
 #ifdef PUTTYNG
     if (hwnd_parent != 0) return;
 #endif // PUTTYNG
-
     if (is_full_screen()) {
 	ShowWindow(hwnd, SW_RESTORE);
     } else if (IsZoomed(hwnd)) {

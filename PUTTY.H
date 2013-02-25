@@ -712,7 +712,6 @@ GLOBAL int loaded_session;
  * This is set to the name of the loaded session.
  */
 GLOBAL char *cmdline_session_name;
-
 #ifdef PUTTYNG
 GLOBAL int hwnd_parent;
 #define IsZoomed(hWnd) TRUE
