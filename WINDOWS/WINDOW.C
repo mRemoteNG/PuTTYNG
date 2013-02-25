@@ -698,6 +698,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	    exwinmode |= WS_EX_CLIENTEDGE;
 #ifdef PUTTYNG
 	}
+	term = NULL; // Make sure that term is initialized to NULL before the window is created so that we can check for it later
 #endif // PUTTYNG
 	hwnd = CreateWindowEx(exwinmode, appname, appname,
 			      winmode, CW_USEDEFAULT, CW_USEDEFAULT,
@@ -2673,6 +2674,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	    BringWindowToTop(hwnd_parent_main);
 #endif // PUTTYNG
       case WM_SETFOCUS:
+#ifdef PUTTYNG
+	if (!term) break; // We might get here before term_init is called
+#endif // PUTTYNG
 	term_set_focus(term, TRUE);
 	CreateCaret(hwnd, caretbm, font_width, font_height);
 	ShowCaret(hwnd);
@@ -2802,10 +2806,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	fullscr_on_max = TRUE;
 	break;
       case WM_MOVE:
+#ifdef PUTTYNG
+	if (!term) break; // We might get here before term_init is called
+#endif // PUTTYNG
 	sys_cursor_update();
 	break;
       case WM_SIZE:
 #ifdef PUTTYNG
+	if (!term) break; // We might get here before term_init is called
 	if (hwnd_parent != 0)
 	{
 	    wParam = SIZE_MAXIMIZED;
