@@ -2219,7 +2219,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		{
 #ifdef PUTTYNG
 		    if (hwnd_parent == 0) {
-#endif
+#endif // PUTTYNG
 		    LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
 		    LONG nexflag, exflag =
 			GetWindowLongPtr(hwnd, GWL_EXSTYLE);
