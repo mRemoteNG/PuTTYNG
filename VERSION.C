@@ -33,6 +33,24 @@ char sshver[] = "PuTTY-Prerelease-" STR(PRERELEASE) ":r" STR(SVN_REV);
 char ver[] = "Custom build r" STR(SVN_REV) ", " __DATE__ " " __TIME__;
 char sshver[] = "PuTTY-Custom-r" STR(SVN_REV);
 
+#elif defined PUTTYNG
+
+#ifndef NG_VER_MAJOR
+#define NG_VER_MAJOR 0
+#endif
+#ifndef NG_VER_MINOR
+#define NG_VER_MINOR 0
+#endif
+#ifndef NG_VER_BUILD
+#define NG_VER_BUILD 0
+#endif
+#ifndef NG_VER_REVISION
+#define NG_VER_REVISION 0
+#endif
+#define RELEASE NG_VER_MAJOR.NG_VER_MINOR
+#define RELEASE_FULL RELEASE.NG_VER_BUILD.NG_VER_REVISION
+char ver[] = "Release " STR(RELEASE_FULL);
+char sshver[] = "PuTTY-Release-" STR(RELEASE);
 #else
 
 char ver[] = "Unidentified build, " __DATE__ " " __TIME__;

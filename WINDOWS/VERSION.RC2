@@ -75,6 +75,22 @@
 #define BINARY_VERSION BASE_VERSION,SVN_REV,0
 #endif
 
+#elif defined PUTTYNG
+#ifndef NG_VER_MAJOR
+#define NG_VER_MAJOR 0
+#endif
+#ifndef NG_VER_MINOR
+#define NG_VER_MINOR 0
+#endif
+#ifndef NG_VER_BUILD
+#define NG_VER_BUILD 0
+#endif
+#ifndef NG_VER_REVISION
+#define NG_VER_REVISION 0
+#endif
+#define RELEASE NG_VER_MAJOR.NG_VER_MINOR.NG_VER_BUILD.NG_VER_REVISION
+#define VERSION_TEXT "Release " STR(RELEASE)
+#define BINARY_VERSION NG_VER_MAJOR,NG_VER_MINOR,NG_VER_BUILD,NG_VER_REVISION
 #else
 
 /* We can't reliably get the same date and time as version.c, so
