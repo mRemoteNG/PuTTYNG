@@ -24,6 +24,8 @@ RCFLAGS = $(RCFLAGS) /DPUTTYNG
 CFLAGS = $(CFLAGS) /DHAS_GSSAPI /DSECURITY_WIN32
 RCFLAGS = $(RCFLAGS) $(VER)
 
+SIGNCMD = signtool.exe sign /n "Astrospark Technologies, LLC" /sha1 "1cbd910dbd6e77f26506e7f600736972f700673f" /tr http://timestamp.comodoca.com/rfc3161
+
 
 all: PuTTYNG.exe
 
@@ -43,6 +45,7 @@ PuTTYNG.exe: be_all_s.obj cmdline.obj config.obj cproxy.obj dialog.obj \
 		wintime.obj winucs.obj winutils.obj winx11.obj x11fwd.obj \
 		putty.rsp
 	link $(LFLAGS) $(XLFLAGS) -out:PuTTYNG.exe -map:PuTTYNG.map @putty.rsp
+	-$(SIGNCMD) PuTTYNG.exe
 
 putty.rsp: $(MAKEFILE)
 	echo /nologo /subsystem:windows > putty.rsp
