@@ -37,8 +37,6 @@ struct Shortcuts {
 struct uctrl {
     union control *ctrl;
     GtkWidget *toplevel;
-    void *privdata;
-    int privdata_needs_free;
     GtkWidget **buttons; int nbuttons; /* for radio buttons */
     GtkWidget *entry;         /* for editbox, filesel, fontsel */
     GtkWidget *button;        /* for filesel, fontsel */
@@ -189,8 +187,6 @@ static void dlg_cleanup(struct dlgparam *dp)
     dp->byctrl = NULL;
     while ( (uc = index234(dp->bywidget, 0)) != NULL) {
 	del234(dp->bywidget, uc);
-	if (uc->privdata_needs_free)
-	    sfree(uc->privdata);
 	sfree(uc->buttons);
 	sfree(uc);
     }
@@ -226,34 +222,6 @@ static struct uctrl *dlg_find_bywidget(struct dlgparam *dp, GtkWidget *w)
 	w = w->parent;
     } while (w);
     return ret;
-}
-
-void *dlg_get_privdata(union control *ctrl, void *dlg)
-{
-    struct dlgparam *dp = (struct dlgparam *)dlg;
-    struct uctrl *uc = dlg_find_byctrl(dp, ctrl);
-    return uc->privdata;
-}
-
-void dlg_set_privdata(union control *ctrl, void *dlg, void *ptr)
-{
-    struct dlgparam *dp = (struct dlgparam *)dlg;
-    struct uctrl *uc = dlg_find_byctrl(dp, ctrl);
-    uc->privdata = ptr;
-    uc->privdata_needs_free = FALSE;
-}
-
-void *dlg_alloc_privdata(union control *ctrl, void *dlg, size_t size)
-{
-    struct dlgparam *dp = (struct dlgparam *)dlg;
-    struct uctrl *uc = dlg_find_byctrl(dp, ctrl);
-    /*
-     * This is an internal allocation routine, so it's allowed to
-     * use smalloc directly.
-     */
-    uc->privdata = smalloc(size);
-    uc->privdata_needs_free = FALSE;
-    return uc->privdata;
 }
 
 union control *dlg_last_focused(union control *ctrl, void *dlg)
@@ -1832,8 +1800,6 @@ GtkWidget *layout_ctrls(struct dlgparam *dp, struct Shortcuts *scs,
 
 	uc = snew(struct uctrl);
 	uc->ctrl = ctrl;
-	uc->privdata = NULL;
-	uc->privdata_needs_free = FALSE;
 	uc->buttons = NULL;
 	uc->entry = NULL;
 #if !GTK_CHECK_VERSION(2,4,0)
@@ -2276,15 +2242,22 @@ GtkWidget *layout_ctrls(struct dlgparam *dp, struct Shortcuts *scs,
 		    cols = cols ? cols : 1;
 		    for (i = 0; i < cols; i++) {
 			GtkTreeViewColumn *column;
+                        GtkCellRenderer *cellrend;
 			/*
 			 * It appears that GTK 2 doesn't leave us any
 			 * particularly sensible way to honour the
 			 * "percentages" specification in the ctrl
 			 * structure.
 			 */
+                        cellrend = gtk_cell_renderer_text_new();
+                        if (!ctrl->listbox.hscroll) {
+                            gtk_object_set(GTK_OBJECT(cellrend),
+                                           "ellipsize", PANGO_ELLIPSIZE_END,
+                                           "ellipsize-set", TRUE,
+                                           NULL);
+                        }
 			column = gtk_tree_view_column_new_with_attributes
-			    ("heading", gtk_cell_renderer_text_new(),
-			     "text", i+1, (char *)NULL);
+			    ("heading", cellrend, "text", i+1, (char *)NULL);
 			gtk_tree_view_column_set_sizing
 			    (column, GTK_TREE_VIEW_COLUMN_GROW_ONLY);
 			gtk_tree_view_append_column(GTK_TREE_VIEW(w), column);
@@ -3415,7 +3388,7 @@ void nonfatal(char *p, ...)
     va_start(ap, p);
     msg = dupvprintf(p, ap);
     va_end(ap);
-    fatal_message_box(NULL, msg);
+    nonfatal_message_box(NULL, msg);
     sfree(msg);
 }
 
@@ -3432,7 +3405,7 @@ static void licence_clicked(GtkButton *button, gpointer data)
     char *title;
 
     char *licence =
-	"Copyright 1997-2013 Simon Tatham.\n\n"
+	"Copyright 1997-2015 Simon Tatham.\n\n"
 
 	"Portions copyright Robert de Bath, Joris van Rantwijk, Delian "
 	"Delchev, Andreas Schultz, Jeroen Massar, Wez Furlong, Nicolas "
@@ -3513,7 +3486,7 @@ void about_box(void *window)
 		       w, FALSE, FALSE, 5);
     gtk_widget_show(w);
 
-    w = gtk_label_new("Copyright 1997-2013 Simon Tatham. All rights reserved");
+    w = gtk_label_new("Copyright 1997-2015 Simon Tatham. All rights reserved");
     gtk_box_pack_start(GTK_BOX(GTK_DIALOG(aboutbox)->vbox),
 		       w, FALSE, FALSE, 5);
     gtk_widget_show(w);
@@ -3543,6 +3516,7 @@ static void eventlog_destroy(GtkWidget *widget, gpointer data)
 
     es->window = NULL;
     sfree(es->seldata);
+    es->seldata = NULL;
     dlg_cleanup(&es->dp);
     ctrl_free_box(es->eventbox);
 }

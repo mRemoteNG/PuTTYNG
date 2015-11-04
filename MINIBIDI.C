@@ -1,5 +1,4 @@
 /************************************************************************
- * $Id: minibidi.c 9426 2012-03-05 18:34:40Z simon $
  *
  * ------------
  * Description:
@@ -10,13 +9,6 @@
  *   http://www.unicode.org/reports/tr9/
  *
  * Author: Ahmad Khalifa
- *
- * -----------------
- * Revision Details:    (Updated by Revision Control System)
- * -----------------
- *  $Date: 2012-03-05 18:34:40 +0000 (Mon, 05 Mar 2012) $
- *  $Author: simon $
- *  $Revision: 9426 $
  *
  * (www.arabeyes.org - under MIT license)
  *

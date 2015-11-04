@@ -1,5 +1,4 @@
 ; -*- no -*-
-; $Id: putty.iss 9998 2013-08-06 17:09:07Z simon $
 ;
 ; -- Inno Setup installer script for PuTTY and its related tools.
 ;    Last tested with Inno Setup 5.0.8.
@@ -14,10 +13,10 @@
 
 [Setup]
 AppName=PuTTY
-AppVerName=PuTTY version 0.63
-VersionInfoTextVersion=Release 0.63
-AppVersion=0.63
-VersionInfoVersion=0.63.0.0
+AppVerName=PuTTY version 0.65
+VersionInfoTextVersion=Release 0.65
+AppVersion=0.65
+VersionInfoVersion=0.65.0.0
 AppPublisher=Simon Tatham
 AppPublisherURL=http://www.chiark.greenend.org.uk/~sgtatham/putty/
 AppReadmeFile={app}\README.txt
