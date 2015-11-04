@@ -15,7 +15,7 @@ MAKEFILE = MAKEFILE.NG
 # C compilation flags
 CFLAGS = /nologo /W3 /O1 -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ -I..\macosx/ /D_WINDOWS /D_WIN32_WINDOWS=0x500 /DWINVER=0x500
 LFLAGS = /incremental:no /fixed
-RCFLAGS = -DWIN32 -D_WIN32 -DWINVER=0x0400
+RCFLAGS = -I..\./ -DWIN32 -D_WIN32 -DWINVER=0x0400
 
 CFLAGS = $(CFLAGS) /DPUTTYNG /Zi
 LFLAGS = $(LFLAGS) /DEBUG /OPT:REF /OPT:ICF
@@ -24,50 +24,56 @@ RCFLAGS = $(RCFLAGS) /DPUTTYNG
 CFLAGS = $(CFLAGS) /DHAS_GSSAPI /DSECURITY_WIN32
 RCFLAGS = $(RCFLAGS) $(VER)
 
-SIGNCMD = signtool.exe sign /n "Astrospark Technologies, LLC" /sha1 "1cbd910dbd6e77f26506e7f600736972f700673f" /tr http://timestamp.comodoca.com/rfc3161
+CFLAGS = $(CFLAGS) /DWIN32 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE
+
+#SIGNCMD = signtool.exe sign /n "Astrospark Technologies, LLC" /sha1 "1cbd910dbd6e77f26506e7f600736972f700673f" /tr http://timestamp.comodoca.com/rfc3161
 
 
 all: PuTTYNG.exe
 
-PuTTYNG.exe: be_all_s.obj cmdline.obj conf.obj config.obj cproxy.obj \
-		dialog.obj ldisc.obj ldiscucs.obj logging.obj minibidi.obj \
-		misc.obj pgssapi.obj pinger.obj portfwd.obj proxy.obj \
-		putty.res raw.obj rlogin.obj sercfg.obj settings.obj \
-		sizetip.obj ssh.obj sshaes.obj ssharcf.obj sshblowf.obj \
-		sshbn.obj sshcrc.obj sshcrcda.obj sshdes.obj sshdh.obj \
-		sshdss.obj sshgssc.obj sshmd5.obj sshpubk.obj sshrand.obj \
-		sshrsa.obj sshsh256.obj sshsh512.obj sshsha.obj sshzlib.obj \
-		telnet.obj terminal.obj timing.obj tree234.obj version.obj \
-		wcwidth.obj wildcard.obj wincfg.obj winctrls.obj windefs.obj \
-		windlg.obj window.obj wingss.obj winhandl.obj winhelp.obj \
-		winjump.obj winmisc.obj winnet.obj winnoise.obj winpgntc.obj \
-		winprint.obj winproxy.obj winser.obj winstore.obj \
-		wintime.obj winucs.obj winutils.obj winx11.obj x11fwd.obj \
+PuTTYNG.exe: be_all_s.obj callback.obj cmdline.obj conf.obj config.obj \
+		cproxy.obj dialog.obj errsock.obj ldisc.obj ldiscucs.obj \
+		logging.obj minibidi.obj misc.obj pgssapi.obj pinger.obj \
+		portfwd.obj proxy.obj putty.res raw.obj rlogin.obj \
+		sercfg.obj settings.obj sizetip.obj ssh.obj sshaes.obj \
+		ssharcf.obj sshblowf.obj sshbn.obj sshcrc.obj sshcrcda.obj \
+		sshdes.obj sshdh.obj sshdss.obj sshgssc.obj sshmd5.obj \
+		sshpubk.obj sshrand.obj sshrsa.obj sshsh256.obj sshsh512.obj \
+		sshsha.obj sshshare.obj sshzlib.obj telnet.obj terminal.obj \
+		timing.obj tree234.obj version.obj wcwidth.obj wildcard.obj \
+		wincfg.obj winctrls.obj windefs.obj windlg.obj window.obj \
+		wingss.obj winhandl.obj winhelp.obj winhsock.obj winjump.obj \
+		winmisc.obj winnet.obj winnoise.obj winnpc.obj winnps.obj \
+		winpgntc.obj winprint.obj winproxy.obj winsecur.obj \
+		winser.obj winshare.obj winstore.obj wintime.obj winucs.obj \
+		winutils.obj winx11.obj x11fwd.obj \
 		putty.rsp
 	link $(LFLAGS) $(XLFLAGS) -out:PuTTYNG.exe -map:PuTTYNG.map @putty.rsp
-	-$(SIGNCMD) PuTTYNG.exe
+#	-$(SIGNCMD) PuTTYNG.exe
 
 putty.rsp: $(MAKEFILE)
 	echo /nologo /subsystem:windows > putty.rsp
-	echo advapi32.lib be_all_s.obj cmdline.obj >> putty.rsp
-	echo comctl32.lib comdlg32.lib conf.obj config.obj >> putty.rsp
-	echo cproxy.obj dialog.obj gdi32.lib imm32.lib >> putty.rsp
-	echo ldisc.obj ldiscucs.obj logging.obj minibidi.obj >> putty.rsp
-	echo misc.obj ole32.lib pgssapi.obj pinger.obj >> putty.rsp
-	echo portfwd.obj proxy.obj putty.res raw.obj >> putty.rsp
-	echo rlogin.obj sercfg.obj settings.obj shell32.lib >> putty.rsp
-	echo sizetip.obj ssh.obj sshaes.obj ssharcf.obj >> putty.rsp
-	echo sshblowf.obj sshbn.obj sshcrc.obj sshcrcda.obj >> putty.rsp
-	echo sshdes.obj sshdh.obj sshdss.obj sshgssc.obj >> putty.rsp
-	echo sshmd5.obj sshpubk.obj sshrand.obj sshrsa.obj >> putty.rsp
-	echo sshsh256.obj sshsh512.obj sshsha.obj sshzlib.obj >> putty.rsp
-	echo telnet.obj terminal.obj timing.obj tree234.obj >> putty.rsp
-	echo user32.lib version.obj wcwidth.obj wildcard.obj >> putty.rsp
-	echo wincfg.obj winctrls.obj windefs.obj windlg.obj >> putty.rsp
-	echo window.obj wingss.obj winhandl.obj winhelp.obj >> putty.rsp
+	echo advapi32.lib be_all_s.obj callback.obj >> putty.rsp
+	echo cmdline.obj comctl32.lib comdlg32.lib conf.obj >> putty.rsp
+	echo config.obj cproxy.obj dialog.obj errsock.obj >> putty.rsp
+	echo gdi32.lib imm32.lib ldisc.obj ldiscucs.obj >> putty.rsp
+	echo logging.obj minibidi.obj misc.obj ole32.lib >> putty.rsp
+	echo pgssapi.obj pinger.obj portfwd.obj proxy.obj >> putty.rsp
+	echo putty.res raw.obj rlogin.obj sercfg.obj >> putty.rsp
+	echo settings.obj shell32.lib sizetip.obj ssh.obj >> putty.rsp
+	echo sshaes.obj ssharcf.obj sshblowf.obj sshbn.obj >> putty.rsp
+	echo sshcrc.obj sshcrcda.obj sshdes.obj sshdh.obj >> putty.rsp
+	echo sshdss.obj sshgssc.obj sshmd5.obj sshpubk.obj >> putty.rsp
+	echo sshrand.obj sshrsa.obj sshsh256.obj sshsh512.obj >> putty.rsp
+	echo sshsha.obj sshshare.obj sshzlib.obj telnet.obj >> putty.rsp
+	echo terminal.obj timing.obj tree234.obj user32.lib >> putty.rsp
+	echo version.obj wcwidth.obj wildcard.obj wincfg.obj >> putty.rsp
+	echo winctrls.obj windefs.obj windlg.obj window.obj >> putty.rsp
+	echo wingss.obj winhandl.obj winhelp.obj winhsock.obj >> putty.rsp
 	echo winjump.obj winmisc.obj winmm.lib winnet.obj >> putty.rsp
-	echo winnoise.obj winpgntc.obj winprint.obj >> putty.rsp
-	echo winproxy.obj winser.obj winspool.lib winstore.obj >> putty.rsp
+	echo winnoise.obj winnpc.obj winnps.obj winpgntc.obj >> putty.rsp
+	echo winprint.obj winproxy.obj winsecur.obj winser.obj >> putty.rsp
+	echo winshare.obj winspool.lib winstore.obj >> putty.rsp
 	echo wintime.obj winucs.obj winutils.obj winx11.obj >> putty.rsp
 	echo x11fwd.obj >> putty.rsp
 
@@ -77,6 +83,12 @@ be_all_s.obj: ..\be_all_s.c ..\putty.h ..\puttyps.h ..\network.h ..\misc.h \
 		..\charset\charset.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\be_all_s.c
 
+callback.obj: ..\callback.c ..\putty.h ..\puttyps.h ..\network.h ..\misc.h \
+		..\windows\winstuff.h ..\macosx\osx.h ..\unix\unix.h \
+		..\puttymem.h ..\tree234.h ..\windows\winhelp.h \
+		..\charset\charset.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\callback.c
+	
 cmdline.obj: ..\cmdline.c ..\putty.h ..\puttyps.h ..\network.h ..\misc.h \
 		..\windows\winstuff.h ..\macosx\osx.h ..\unix\unix.h \
 		..\puttymem.h ..\tree234.h ..\windows\winhelp.h \
@@ -107,6 +119,12 @@ dialog.obj: ..\dialog.c ..\putty.h ..\dialog.h ..\puttyps.h ..\network.h \
 		..\windows\winhelp.h ..\charset\charset.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\dialog.c
 
+errsock.obj: ..\errsock.c ..\tree234.h ..\putty.h ..\network.h ..\puttyps.h \
+		..\misc.h ..\windows\winstuff.h ..\macosx\osx.h \
+		..\unix\unix.h ..\puttymem.h ..\windows\winhelp.h \
+		..\charset\charset.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\errsock.c
+	
 ldisc.obj: ..\ldisc.c ..\putty.h ..\terminal.h ..\ldisc.h ..\puttyps.h \
 		..\network.h ..\misc.h ..\tree234.h ..\windows\winstuff.h \
 		..\macosx\osx.h ..\unix\unix.h ..\puttymem.h \
@@ -274,6 +292,12 @@ sshsha.obj: ..\sshsha.c ..\ssh.h ..\puttymem.h ..\tree234.h ..\network.h \
 		..\int64.h ..\misc.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\sshsha.c
 
+sshshare.obj: ..\sshshare.c ..\putty.h ..\tree234.h ..\ssh.h ..\puttyps.h \
+		..\network.h ..\misc.h ..\puttymem.h ..\int64.h \
+		..\windows\winstuff.h ..\macosx\osx.h ..\unix\unix.h \
+		..\windows\winhelp.h ..\charset\charset.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\sshshare.c
+	
 sshzlib.obj: ..\sshzlib.c ..\ssh.h ..\puttymem.h ..\tree234.h ..\network.h \
 		..\int64.h ..\misc.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\sshzlib.c
@@ -299,6 +323,9 @@ timing.obj: ..\timing.c ..\putty.h ..\tree234.h ..\puttyps.h ..\network.h \
 tree234.obj: ..\tree234.c ..\tree234.h ..\puttymem.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\tree234.c
 
+version.obj: ..\version.c ..\version.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\version.c
+	
 wcwidth.obj: ..\wcwidth.c ..\putty.h ..\puttyps.h ..\network.h ..\misc.h \
 		..\windows\winstuff.h ..\macosx\osx.h ..\unix\unix.h \
 		..\puttymem.h ..\tree234.h ..\windows\winhelp.h \
@@ -387,6 +414,20 @@ winnoise.obj: ..\windows\winnoise.c ..\putty.h ..\ssh.h ..\storage.h \
 		..\charset\charset.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\windows\winnoise.c
 
+winnpc.obj: ..\windows\winnpc.c ..\tree234.h ..\putty.h ..\network.h \
+		..\proxy.h ..\ssh.h ..\windows\winsecur.h ..\puttyps.h \
+		..\misc.h ..\puttymem.h ..\int64.h ..\windows\winstuff.h \
+		..\macosx\osx.h ..\unix\unix.h ..\windows\winhelp.h \
+		..\charset\charset.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\windows\winnpc.c
+
+winnps.obj: ..\windows\winnps.c ..\tree234.h ..\putty.h ..\network.h \
+		..\proxy.h ..\ssh.h ..\windows\winsecur.h ..\puttyps.h \
+		..\misc.h ..\puttymem.h ..\int64.h ..\windows\winstuff.h \
+		..\macosx\osx.h ..\unix\unix.h ..\windows\winhelp.h \
+		..\charset\charset.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\windows\winnps.c
+	
 winpgntc.obj: ..\windows\winpgntc.c ..\putty.h ..\puttyps.h ..\network.h \
 		..\misc.h ..\windows\winstuff.h ..\macosx\osx.h \
 		..\unix\unix.h ..\puttymem.h ..\tree234.h \
@@ -405,12 +446,25 @@ winproxy.obj: ..\windows\winproxy.c ..\tree234.h ..\putty.h ..\network.h \
 		..\windows\winhelp.h ..\charset\charset.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\windows\winproxy.c
 
+winsecur.obj: ..\windows\winsecur.c ..\putty.h ..\windows\winsecur.h \
+		..\puttyps.h ..\network.h ..\misc.h ..\windows\winstuff.h \
+		..\macosx\osx.h ..\unix\unix.h ..\puttymem.h ..\tree234.h \
+		..\windows\winhelp.h ..\charset\charset.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\windows\winsecur.c
+	
 winser.obj: ..\windows\winser.c ..\putty.h ..\puttyps.h ..\network.h \
 		..\misc.h ..\windows\winstuff.h ..\macosx\osx.h \
 		..\unix\unix.h ..\puttymem.h ..\tree234.h \
 		..\windows\winhelp.h ..\charset\charset.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\windows\winser.c
 
+winshare.obj: ..\windows\winshare.c ..\tree234.h ..\putty.h ..\network.h \
+		..\proxy.h ..\ssh.h ..\windows\winsecur.h ..\noshare.c \
+		..\puttyps.h ..\misc.h ..\puttymem.h ..\int64.h \
+		..\windows\winstuff.h ..\macosx\osx.h ..\unix\unix.h \
+		..\windows\winhelp.h ..\charset\charset.h
+	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\windows\winshare.c
+	
 winstore.obj: ..\windows\winstore.c ..\putty.h ..\storage.h ..\puttyps.h \
 		..\network.h ..\misc.h ..\windows\winstuff.h ..\macosx\osx.h \
 		..\unix\unix.h ..\puttymem.h ..\tree234.h \
@@ -447,9 +501,6 @@ x11fwd.obj: ..\x11fwd.c ..\putty.h ..\ssh.h ..\tree234.h ..\puttyps.h \
 		..\windows\winhelp.h ..\charset\charset.h
 	cl $(COMPAT) $(CFLAGS) $(XFLAGS) /c ..\x11fwd.c
 
-
-version.obj: *.c *.h *.rc
-	cl $(VER) $(CFLAGS) /c ..\version.c
 
 clean: tidy
 	-del *.exe
