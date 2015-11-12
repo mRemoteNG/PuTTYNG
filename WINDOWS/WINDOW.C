@@ -76,6 +76,11 @@
 #define WHEEL_DELTA 120
 #endif
 
+/* VK_PACKET, used to send Unicode characters in WM_KEYDOWNs */
+#ifndef VK_PACKET
+#define VK_PACKET 0xE7
+#endif
+
 static Mouse_Button translate_button(Mouse_Button button);
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
@@ -336,7 +341,6 @@ static void close_session(void *ignored_context)
 
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 {
-    WNDCLASS wndclass;
     MSG msg;
     HRESULT hr;
     int guess_width, guess_height;
@@ -652,6 +656,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     }
 
     if (!prev) {
+        WNDCLASSW wndclass;
+
 	wndclass.style = 0;
 	wndclass.lpfnWndProc = WndProc;
 	wndclass.cbClsExtra = 0;
@@ -661,9 +667,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	wndclass.hCursor = LoadCursor(NULL, IDC_IBEAM);
 	wndclass.hbrBackground = NULL;
 	wndclass.lpszMenuName = NULL;
-	wndclass.lpszClassName = appname;
+	wndclass.lpszClassName = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
 
-	RegisterClass(&wndclass);
+	RegisterClassW(&wndclass);
     }
 
     memset(&ucsdata, 0, sizeof(ucsdata));
@@ -697,6 +703,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     {
 	int winmode = WS_OVERLAPPEDWINDOW | WS_VSCROLL;
 	int exwinmode = 0;
+        wchar_t *uappname = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
 	if (!conf_get_int(conf, CONF_scrollbar))
 	    winmode &= ~(WS_VSCROLL);
 	if (conf_get_int(conf, CONF_resize_action) == RESIZE_DISABLED)
@@ -705,10 +712,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	    exwinmode |= WS_EX_TOPMOST;
 	if (conf_get_int(conf, CONF_sunken_edge))
 	    exwinmode |= WS_EX_CLIENTEDGE;
-	hwnd = CreateWindowEx(exwinmode, appname, appname,
-			      winmode, CW_USEDEFAULT, CW_USEDEFAULT,
-			      guess_width, guess_height,
-			      NULL, NULL, inst, NULL);
 #ifdef PUTTYNG
 	if (hwnd_parent != 0)
 	{
@@ -716,6 +719,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	    hwnd_parent_main = GetAncestor((HWND)hwnd_parent, GA_ROOTOWNER); // the top level ancestor of hwnd_parent
 	}
 #endif // PUTTYNG
+	hwnd = CreateWindowExW(exwinmode, uappname, uappname,
+                               winmode, CW_USEDEFAULT, CW_USEDEFAULT,
+                               guess_width, guess_height,
+                               NULL, NULL, inst, NULL);
+        sfree(uappname);
     }
 
     /*
@@ -902,12 +910,12 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	} else
 	    sfree(handles);
 
-	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+	while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
 	    if (msg.message == WM_QUIT)
 		goto finished;	       /* two-level break */
 
 	    if (!(IsWindow(logbox) && IsDialogMessage(logbox, &msg)))
-		DispatchMessage(&msg);
+		DispatchMessageW(&msg);
 
             /*
              * WM_NETEVENT messages seem to jump ahead of others in
@@ -2304,9 +2312,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 		/* Enable or disable the scroll bar, etc */
 		{
-#ifdef PUTTYNG
-		    if (hwnd_parent == 0) {
-#endif // PUTTYNG
 		    LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
 		    LONG nexflag, exflag =
 			GetWindowLongPtr(hwnd, GWL_EXSTYLE);
@@ -2361,9 +2366,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 			init_lvl = 2;
 		    }
-#ifdef PUTTYNG
-		    }
-#endif // PUTTYNG
 		}
 
 		/* Oops */
@@ -2605,14 +2607,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		wp = wParam; lp = lParam;
 		last_mousemove = WM_MOUSEMOVE;
 	    }
-#ifdef PUTTYNG
-	    {
-    		GUITHREADINFO thread_info;
-		thread_info.cbSize = sizeof(thread_info);
-		GetGUIThreadInfo(NULL, &thread_info);
-		hwnd_last_active = thread_info.hwndActive;
-	    }
-#endif // PUTTYNG
 	}
 	/*
 	 * Add the mouse position and message time to the random
@@ -2769,15 +2763,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             queue_toplevel_callback(wm_netevent_callback, params);
         }
 	return 0;
-#ifdef PUTTYNG
-      case WM_MOUSEACTIVATE:
-	if (hwnd_parent != 0 && hwnd_last_active != hwnd_parent_main)
-	    BringWindowToTop(hwnd_parent_main);
-#endif // PUTTYNG
       case WM_SETFOCUS:
-#ifdef PUTTYNG
-	if (!term) break; // We might get here before term_init is called
-#endif // PUTTYNG
 	term_set_focus(term, TRUE);
 	CreateCaret(hwnd, caretbm, font_width, font_height);
 	ShowCaret(hwnd);
@@ -2910,20 +2896,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	fullscr_on_max = TRUE;
 	break;
       case WM_MOVE:
-#ifdef PUTTYNG
-	if (!term) break; // We might get here before term_init is called
-#endif // PUTTYNG
 	sys_cursor_update();
 	break;
       case WM_SIZE:
-#ifdef PUTTYNG
-	if (!term) break; // We might get here before term_init is called
-	if (hwnd_parent != 0)
-	{
-	    wParam = SIZE_MAXIMIZED;
-	    was_zoomed = 0;
-	}
-#endif // PUTTYNG
 	resize_action = conf_get_int(conf, CONF_resize_action);
 #ifdef RDB_DEBUG_PATCH
 	debug((27, "WM_SIZE %s (%d,%d)",
@@ -3130,7 +3105,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	    unsigned char buf[20];
 	    int len;
 
-	    if (wParam == VK_PROCESSKEY) { /* IME PROCESS key */
+	    if (wParam == VK_PROCESSKEY || /* IME PROCESS key */
+                wParam == VK_PACKET) {     /* 'this key is a Unicode char' */
 		if (message == WM_KEYDOWN) {
 		    MSG m;
 		    m.hwnd = hwnd;
@@ -3142,7 +3118,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	    } else {
 		len = TranslateKey(message, wParam, lParam, buf);
 		if (len == -1)
-		    return DefWindowProc(hwnd, message, wParam, lParam);
+		    return DefWindowProcW(hwnd, message, wParam, lParam);
 
 		if (len != 0) {
 		    /*
@@ -3246,10 +3222,21 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	 * we're ready to cope.
 	 */
 	{
-	    char c = (unsigned char)wParam;
-	    term_seen_key_event(term);
-	    if (ldisc)
-		lpage_send(ldisc, CP_ACP, &c, 1, 1);
+            static wchar_t pending_surrogate = 0;
+	    wchar_t c = wParam;
+
+            if (IS_HIGH_SURROGATE(c)) {
+                pending_surrogate = c;
+            } else if (IS_SURROGATE_PAIR(pending_surrogate, c)) {
+                wchar_t pair[2];
+                pair[0] = pending_surrogate;
+                pair[1] = c;
+                term_seen_key_event(term);
+                luni_send(ldisc, pair, 2, 1);
+            } else if (!IS_SURROGATE(c)) {
+                term_seen_key_event(term);
+                luni_send(ldisc, &c, 1, 1);
+            }
 	}
 	return 0;
       case WM_SYSCOLORCHANGE:
@@ -3334,7 +3321,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
      * Any messages we don't process completely above are passed through to
      * DefWindowProc() for default processing.
      */
-    return DefWindowProc(hwnd, message, wParam, lParam);
+    return DefWindowProcW(hwnd, message, wParam, lParam);
 }
 
 /*
@@ -5633,9 +5620,6 @@ void refresh_window(void *frontend)
  */
 void set_zoomed(void *frontend, int zoomed)
 {
-#ifdef PUTTYNG
-    if (hwnd_parent != 0) return;
-#endif // PUTTYNG
     if (IsZoomed(hwnd)) {
         if (!zoomed)
 	    ShowWindow(hwnd, SW_RESTORE);
@@ -5729,9 +5713,6 @@ static void make_full_screen()
 {
     DWORD style;
 	RECT ss;
-#ifdef PUTTYNG
-    if (hwnd_parent != 0) return;
-#endif // PUTTYNG
 
     assert(IsZoomed(hwnd));
 
@@ -5772,9 +5753,6 @@ static void make_full_screen()
 static void clear_full_screen()
 {
     DWORD oldstyle, style;
-#ifdef PUTTYNG
-    if (hwnd_parent != 0) return;
-#endif // PUTTYNG
 
     /* Reinstate the window furniture. */
     style = oldstyle = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -5807,9 +5785,6 @@ static void clear_full_screen()
  */
 static void flip_full_screen()
 {
-#ifdef PUTTYNG
-    if (hwnd_parent != 0) return;
-#endif // PUTTYNG
     if (is_full_screen()) {
 	ShowWindow(hwnd, SW_RESTORE);
     } else if (IsZoomed(hwnd)) {
