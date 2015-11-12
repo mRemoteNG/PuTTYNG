@@ -2312,6 +2312,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 		/* Enable or disable the scroll bar, etc */
 		{
+#ifdef PUTTYNG
+		    if (hwnd_parent == 0) {
+#endif // PUTTYNG
 		    LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
 		    LONG nexflag, exflag =
 			GetWindowLongPtr(hwnd, GWL_EXSTYLE);
@@ -2366,6 +2369,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 			init_lvl = 2;
 		    }
+#ifdef PUTTYNG
+		    }
+#endif // PUTTYNG
 		}
 
 		/* Oops */
@@ -2607,6 +2613,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		wp = wParam; lp = lParam;
 		last_mousemove = WM_MOUSEMOVE;
 	    }
+#ifdef PUTTYNG
+	    {
+    		GUITHREADINFO thread_info;
+		thread_info.cbSize = sizeof(thread_info);
+		GetGUIThreadInfo(NULL, &thread_info);
+		hwnd_last_active = thread_info.hwndActive;
+	    }
+#endif // PUTTYNG
 	}
 	/*
 	 * Add the mouse position and message time to the random
@@ -2763,7 +2777,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             queue_toplevel_callback(wm_netevent_callback, params);
         }
 	return 0;
+#ifdef PUTTYNG
+      case WM_MOUSEACTIVATE:
+	if (hwnd_parent != 0 && hwnd_last_active != hwnd_parent_main)
+	    BringWindowToTop(hwnd_parent_main);
+#endif // PUTTYNG
       case WM_SETFOCUS:
+#ifdef PUTTYNG
+	if (!term) break; // We might get here before term_init is called
+#endif // PUTTYNG
 	term_set_focus(term, TRUE);
 	CreateCaret(hwnd, caretbm, font_width, font_height);
 	ShowCaret(hwnd);
@@ -2896,9 +2918,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	fullscr_on_max = TRUE;
 	break;
       case WM_MOVE:
+#ifdef PUTTYNG
+	if (!term) break; // We might get here before term_init is called
+#endif // PUTTYNG
 	sys_cursor_update();
 	break;
       case WM_SIZE:
+#ifdef PUTTYNG
+	if (!term) break; // We might get here before term_init is called
+	if (hwnd_parent != 0)
+	{
+	    wParam = SIZE_MAXIMIZED;
+	    was_zoomed = 0;
+	}
+#endif // PUTTYNG
 	resize_action = conf_get_int(conf, CONF_resize_action);
 #ifdef RDB_DEBUG_PATCH
 	debug((27, "WM_SIZE %s (%d,%d)",
@@ -5620,6 +5653,9 @@ void refresh_window(void *frontend)
  */
 void set_zoomed(void *frontend, int zoomed)
 {
+#ifdef PUTTYNG
+    if (hwnd_parent != 0) return;
+#endif // PUTTYNG
     if (IsZoomed(hwnd)) {
         if (!zoomed)
 	    ShowWindow(hwnd, SW_RESTORE);
@@ -5713,6 +5749,9 @@ static void make_full_screen()
 {
     DWORD style;
 	RECT ss;
+#ifdef PUTTYNG
+    if (hwnd_parent != 0) return;
+#endif // PUTTYNG
 
     assert(IsZoomed(hwnd));
 
@@ -5753,6 +5792,9 @@ static void make_full_screen()
 static void clear_full_screen()
 {
     DWORD oldstyle, style;
+#ifdef PUTTYNG
+    if (hwnd_parent != 0) return;
+#endif // PUTTYNG
 
     /* Reinstate the window furniture. */
     style = oldstyle = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -5785,6 +5827,9 @@ static void clear_full_screen()
  */
 static void flip_full_screen()
 {
+#ifdef PUTTYNG
+    if (hwnd_parent != 0) return;
+#endif // PUTTYNG
     if (is_full_screen()) {
 	ShowWindow(hwnd, SW_RESTORE);
     } else if (IsZoomed(hwnd)) {
