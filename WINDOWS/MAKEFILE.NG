@@ -15,16 +15,16 @@ MAKEFILE = MAKEFILE.NG
 # C compilation flags
 CFLAGS = /nologo /W3 /O1 -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ -I..\macosx/ /D_WINDOWS /D_WIN32_WINDOWS=0x500 /DWINVER=0x500
 LFLAGS = /incremental:no /fixed
-RCFLAGS = -I..\./ -DWIN32 -D_WIN32 -DWINVER=0x0400
+RCFLAGS = -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ -I..\macosx/ -DWIN32 -D_WIN32 -DWINVER=0x0400
 
-CFLAGS = $(CFLAGS) /DPUTTYNG /Zi
-LFLAGS = $(LFLAGS) /DEBUG /OPT:REF /OPT:ICF
+CFLAGS = $(CFLAGS) /DPUTTYNG
+#LFLAGS = $(LFLAGS) /DEBUG /OPT:REF /OPT:ICF
 RCFLAGS = $(RCFLAGS) /DPUTTYNG
 
 CFLAGS = $(CFLAGS) /DHAS_GSSAPI /DSECURITY_WIN32
 RCFLAGS = $(RCFLAGS) $(VER)
 
-CFLAGS = $(CFLAGS) /DWIN32 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE
+CFLAGS = $(CFLAGS) /DWIN32 /DHAS_GSSAPI /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE
 
 #SIGNCMD = signtool.exe sign /n "Astrospark Technologies, LLC" /sha1 "1cbd910dbd6e77f26506e7f600736972f700673f" /tr http://timestamp.comodoca.com/rfc3161
 
@@ -48,7 +48,7 @@ PuTTYNG.exe: be_all_s.obj callback.obj cmdline.obj conf.obj config.obj \
 		winsecur.obj winser.obj winshare.obj winstore.obj \
 		wintime.obj winucs.obj winutils.obj winx11.obj x11fwd.obj \
 		putty.rsp
-	link $(LFLAGS) $(XLFLAGS) -out:putty.exe -map:putty.map @putty.rsp
+	link $(LFLAGS) $(XLFLAGS) -out:PuTTYNG.exe -map:PuTTYNG.map @putty.rsp
 #	-$(SIGNCMD) PuTTYNG.exe
 
 putty.rsp: $(MAKEFILE)
