@@ -107,6 +107,10 @@ SOURCE=..\..\..\be_ssh.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\callback.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\cmdline.c
 # End Source File
 # Begin Source File
@@ -119,6 +123,10 @@ SOURCE=..\..\..\cproxy.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\errsock.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\int64.c
 # End Source File
 # Begin Source File
@@ -128,6 +136,10 @@ SOURCE=..\..\..\logging.c
 # Begin Source File
 
 SOURCE=..\..\..\misc.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\noshare.c
 # End Source File
 # Begin Source File
 
@@ -240,6 +252,10 @@ SOURCE=..\..\..\sshsha.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshshare.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\sshzlib.c
 # End Source File
 # Begin Source File
@@ -260,6 +276,10 @@ SOURCE=..\..\..\wildcard.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\wincapi.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\wincons.c
 # End Source File
 # Begin Source File
@@ -273,6 +293,10 @@ SOURCE=..\..\..\windows\wingss.c
 # Begin Source File
 
 SOURCE=..\..\..\windows\winhandl.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winhsock.c
 # End Source File
 # Begin Source File
 
@@ -292,6 +316,14 @@ SOURCE=..\..\..\windows\winnojmp.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\winnpc.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winnps.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winpgntc.c
 # End Source File
 # Begin Source File
@@ -300,7 +332,15 @@ SOURCE=..\..\..\windows\winproxy.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\winsecur.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winsftp.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winshare.c
 # End Source File
 # Begin Source File
 
@@ -325,6 +365,10 @@ SOURCE=..\..\..\charset\charset.h
 # Begin Source File
 
 SOURCE=..\..\..\int64.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\licence.h
 # End Source File
 # Begin Source File
 
@@ -372,6 +416,10 @@ SOURCE=..\..\..\ssh.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshbn.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\sshgss.h
 # End Source File
 # Begin Source File
@@ -392,11 +440,23 @@ SOURCE=..\..\..\unix\unix.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\version.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\rcstuff.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\wincapi.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winhelp.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winsecur.h
 # End Source File
 # Begin Source File
 

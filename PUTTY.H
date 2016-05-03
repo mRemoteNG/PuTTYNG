@@ -31,6 +31,8 @@ typedef struct terminal_tag Terminal;
  * Fingerprints of the PGP master keys that can be used to establish a trust
  * path between an executable and other files.
  */
+#define PGP_MASTER_KEY_FP \
+    "440D E3B5 B7A1 CA85 B3CC  1718 AB58 5DC6 0467 6F7C"
 #define PGP_RSA_MASTER_KEY_FP \
     "8F 15 97 DA 25 30 AB 0D  88 D1 92 54 11 CF 0C 4C"
 #define PGP_DSA_MASTER_KEY_FP \
@@ -841,13 +843,24 @@ void cleanup_exit(int);
     X(INT, NONE, sshbug_rekey2) \
     X(INT, NONE, sshbug_maxpkt2) \
     X(INT, NONE, sshbug_ignore2) \
+    X(INT, NONE, sshbug_oldgex2) \
     X(INT, NONE, sshbug_winadj) \
+    X(INT, NONE, sshbug_chanreq) \
     /*                                                                \
      * ssh_simple means that we promise never to open any channel     \
      * other than the main one, which means it can safely use a very  \
      * large window in SSH-2.                                         \
      */ \
     X(INT, NONE, ssh_simple) \
+    X(INT, NONE, ssh_connection_sharing) \
+    X(INT, NONE, ssh_connection_sharing_upstream) \
+    X(INT, NONE, ssh_connection_sharing_downstream) \
+    /*
+     * ssh_manual_hostkeys is conceptually a set rather than a
+     * dictionary: the string subkeys are the important thing, and the
+     * actual values to which those subkeys map are all "".
+     */ \
+    X(STR, STR, ssh_manual_hostkeys) \
     /* Options for pterm. Should split out into platform-dependent part. */ \
     X(INT, NONE, stamp_utmp) \
     X(INT, NONE, login_shell) \
@@ -981,8 +994,6 @@ void term_update(Terminal *);
 void term_invalidate(Terminal *);
 void term_blink(Terminal *, int set_cursor);
 void term_do_paste(Terminal *);
-int term_paste_pending(Terminal *);
-void term_paste(Terminal *);
 void term_nopaste(Terminal *);
 int term_ldisc(Terminal *, int option);
 void term_copyall(Terminal *);
@@ -1022,7 +1033,8 @@ struct logblank_t {
 void log_packet(void *logctx, int direction, int type,
 		char *texttype, const void *data, int len,
 		int n_blanks, const struct logblank_t *blanks,
-		const unsigned long *sequence);
+		const unsigned long *sequence,
+                unsigned downstream_id, const char *additional_log_text);
 
 /*
  * Exports from testback.c
@@ -1297,6 +1309,7 @@ int filename_serialise(const Filename *f, void *data);
 Filename *filename_deserialise(void *data, int maxsize, int *used);
 char *get_username(void);	       /* return value needs freeing */
 char *get_random_data(int bytes);      /* used in cmdgen.c */
+char filename_char_sanitise(char c);   /* rewrite special pathname chars */
 
 /*
  * Exports and imports from timing.c.
@@ -1395,6 +1408,36 @@ int run_timers(unsigned long now, unsigned long *next);
 void timer_change_notify(unsigned long next);
 
 /*
+ * Exports from callback.c.
+ *
+ * This provides a method of queuing function calls to be run at the
+ * earliest convenience from the top-level event loop. Use it if
+ * you're deep in a nested chain of calls and want to trigger an
+ * action which will probably lead to your function being re-entered
+ * recursively if you just call the initiating function the normal
+ * way.
+ *
+ * Most front ends run the queued callbacks by simply calling
+ * run_toplevel_callbacks() after handling each event in their
+ * top-level event loop. However, if a front end doesn't have control
+ * over its own event loop (e.g. because it's using GTK) then it can
+ * instead request notifications when a callback is available, so that
+ * it knows to ask its delegate event loop to do the same thing. Also,
+ * if a front end needs to know whether a callback is pending without
+ * actually running it (e.g. so as to put a zero timeout on a select()
+ * call) then it can call toplevel_callback_pending(), which will
+ * return true if at least one callback is in the queue.
+ */
+typedef void (*toplevel_callback_fn_t)(void *ctx);
+void queue_toplevel_callback(toplevel_callback_fn_t fn, void *ctx);
+void run_toplevel_callbacks(void);
+int toplevel_callback_pending(void);
+
+typedef void (*toplevel_callback_notify_fn_t)(void *frontend);
+void request_callback_notifications(toplevel_callback_notify_fn_t notify,
+                                    void *frontend);
+
+/*
  * Define no-op macros for the jump list functions, on platforms that
  * don't support them. (This is a bit of a hack, and it'd be nicer to
  * localise even the calls to those functions into the Windows front
@@ -1406,12 +1449,14 @@ void timer_change_notify(unsigned long next);
 #endif
 
 /* SURROGATE PAIR */
-#ifndef IS_HIGH_SURROGATE
 #define HIGH_SURROGATE_START 0xd800
 #define HIGH_SURROGATE_END 0xdbff
 #define LOW_SURROGATE_START 0xdc00
 #define LOW_SURROGATE_END 0xdfff
 
+/* These macros exist in the Windows API, so the environment may
+ * provide them. If not, define them in terms of the above. */
+#ifndef IS_HIGH_SURROGATE
 #define IS_HIGH_SURROGATE(wch) (((wch) >= HIGH_SURROGATE_START) && \
                                 ((wch) <= HIGH_SURROGATE_END))
 #define IS_LOW_SURROGATE(wch) (((wch) >= LOW_SURROGATE_START) && \

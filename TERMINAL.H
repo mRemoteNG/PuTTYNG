@@ -172,7 +172,7 @@ struct terminal_tag {
 #define ARGS_MAX 32		       /* max # of esc sequence arguments */
 #define ARG_DEFAULT 0		       /* if an arg isn't specified */
 #define def(a,d) ( (a) == ARG_DEFAULT ? (d) : (a) )
-    int esc_args[ARGS_MAX];
+    unsigned esc_args[ARGS_MAX];
     int esc_nargs;
     int esc_query;
 #define ANSI(x,y)	((x)+((y)<<8))
@@ -222,8 +222,7 @@ struct terminal_tag {
     int attr_mask;
 
     wchar_t *paste_buffer;
-    int paste_len, paste_pos, paste_hold;
-    long last_paste;
+    int paste_len, paste_pos;
 
     void (*resize_fn)(void *, int, int);
     void *resize_ctx;

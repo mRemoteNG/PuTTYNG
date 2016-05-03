@@ -98,6 +98,10 @@ SOURCE=..\..\..\be_all_s.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\callback.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\cmdline.c
 # End Source File
 # Begin Source File
@@ -118,6 +122,10 @@ SOURCE=..\..\..\dialog.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\errsock.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\ldisc.c
 # End Source File
 # Begin Source File
@@ -135,6 +143,14 @@ SOURCE=..\..\..\minibidi.c
 # Begin Source File
 
 SOURCE=..\..\..\misc.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\miscucs.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\noshare.c
 # End Source File
 # Begin Source File
 
@@ -251,6 +267,10 @@ SOURCE=..\..\..\sshsha.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshshare.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\sshzlib.c
 # End Source File
 # Begin Source File
@@ -287,6 +307,10 @@ SOURCE=..\..\..\windows\sizetip.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\wincapi.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\wincfg.c
 # End Source File
 # Begin Source File
@@ -319,6 +343,10 @@ SOURCE=..\..\..\windows\winhelp.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\winhsock.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winjump.c
 # End Source File
 # Begin Source File
@@ -335,6 +363,14 @@ SOURCE=..\..\..\windows\winnoise.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\winnpc.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winnps.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winpgntc.c
 # End Source File
 # Begin Source File
@@ -347,7 +383,15 @@ SOURCE=..\..\..\windows\winproxy.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\winsecur.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winser.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winshare.c
 # End Source File
 # Begin Source File
 
@@ -395,6 +439,10 @@ SOURCE=..\..\..\ldisc.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\licence.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\macosx\osx.h
 # End Source File
 # Begin Source File
@@ -431,6 +479,10 @@ SOURCE=..\..\..\ssh.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshbn.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\sshgss.h
 # End Source File
 # Begin Source File
@@ -455,6 +507,10 @@ SOURCE=..\..\..\unix\unix.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\version.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\rcstuff.h
 # End Source File
 # Begin Source File
@@ -463,7 +519,15 @@ SOURCE=..\..\..\windows\win_res.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\wincapi.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winhelp.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winsecur.h
 # End Source File
 # Begin Source File
 

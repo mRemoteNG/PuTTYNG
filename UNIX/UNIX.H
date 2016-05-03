@@ -24,9 +24,6 @@ struct FontSpec *fontspec_new(const char *name);
 
 typedef void *Context;                 /* FIXME: probably needs changing */
 
-typedef int OSSocket;
-#define OSSOCKET_DEFINED	       /* stop network.h using its default */
-
 extern Backend pty_backend;
 
 typedef uint32_t uint32; /* C99: uint32_t defined in stdint.h */
@@ -80,6 +77,7 @@ unsigned long getticks(void);	       /* based on gettimeofday(2) */
 char *get_x_display(void *frontend);
 int font_dimension(void *frontend, int which);/* 0 for width, 1 for height */
 long get_windowid(void *frontend);
+int frontend_is_utf8(void *frontend);
 
 /* Things gtkdlg.c needs from pterm.c */
 void *get_window(void *frontend);      /* void * to avoid depending on gtk.h */
@@ -95,7 +93,8 @@ void showeventlog(void *estuff, void *parentwin);
 void logevent_dlg(void *estuff, const char *string);
 int reallyclose(void *frontend);
 #ifdef MAY_REFER_TO_GTK_IN_HEADERS
-int messagebox(GtkWidget *parentwin, char *title, char *msg, int minwid, ...);
+int messagebox(GtkWidget *parentwin, char *title,
+               char *msg, int minwid, int selectable, ...);
 int string_width(char *text);
 #endif
 
@@ -174,13 +173,6 @@ int init_ucs(struct unicode_data *ucsdata, char *line_codepage,
 void *sk_getxdmdata(void *sock, int *lenp);
 
 /*
- * Function provided by front ends, and called by uxnet.c to indicate
- * that net_pending_errors() would like to be called back when the
- * front end has a spare moment and isn't deep in any other recursion.
- */
-void frontend_net_error_pending(void);
-
-/*
  * General helpful Unix stuff: more helpful version of the FD_SET
  * macro, which also handles maxfd.
  */
@@ -193,5 +185,10 @@ void frontend_net_error_pending(void);
  * Exports from winser.c.
  */
 extern Backend serial_backend;
+
+/*
+ * uxpeer.c, wrapping getsockopt(SO_PEERCRED).
+ */
+int so_peercred(int fd, int *pid, int *uid, int *gid);
 
 #endif

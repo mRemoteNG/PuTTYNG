@@ -668,21 +668,19 @@ int sftp_put_file(char *fname, char *outfname, int recurse, int restart)
     if (restart) {
 	char decbuf[30];
 	struct fxp_attrs attrs;
-	int ret;
 
 	req = fxp_fstat_send(fh);
         pktin = sftp_wait_for_reply(req);
 	ret = fxp_fstat_recv(pktin, req, &attrs);
 
 	if (!ret) {
-	    close_rfile(file);
 	    printf("read size of %s: %s\n", outfname, fxp_error());
-	    return 0;
+            goto cleanup;
 	}
 	if (!(attrs.flags & SSH_FILEXFER_ATTR_SIZE)) {
-	    close_rfile(file);
 	    printf("read size of %s: size was not given\n", outfname);
-	    return 0;
+            ret = 0;
+            goto cleanup;
 	}
 	offset = attrs.size;
 	uint64_decimal(offset, decbuf);
@@ -735,6 +733,7 @@ int sftp_put_file(char *fname, char *outfname, int recurse, int restart)
 
     xfer_cleanup(xfer);
 
+  cleanup:
     req = fxp_close_send(fh);
     pktin = sftp_wait_for_reply(req);
     fxp_close_recv(pktin, req);
@@ -2389,7 +2388,7 @@ void do_sftp_cleanup()
     }
 }
 
-void do_sftp(int mode, int modeflags, char *batchfile)
+int do_sftp(int mode, int modeflags, char *batchfile)
 {
     FILE *fp;
     int ret;
@@ -2422,8 +2421,9 @@ void do_sftp(int mode, int modeflags, char *batchfile)
         fp = fopen(batchfile, "r");
         if (!fp) {
 	    printf("Fatal: unable to open %s\n", batchfile);
-	    return;
+	    return 1;
         }
+	ret = 0;
         while (1) {
 	    struct sftp_command *cmd;
 	    cmd = sftp_getcmd(fp, mode, modeflags);
@@ -2438,8 +2438,13 @@ void do_sftp(int mode, int modeflags, char *batchfile)
 	    }
         }
 	fclose(fp);
-
+	/*
+	 * In batch mode, and if exit on command failure is enabled,
+	 * any command failure causes the whole of PSFTP to fail.
+	 */
+	if (ret == 0 && !(modeflags & 2)) return 2;
     }
+    return 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -2668,10 +2673,15 @@ static void usage(void)
     printf("  -1 -2     force use of particular SSH protocol version\n");
     printf("  -4 -6     force use of IPv4 or IPv6\n");
     printf("  -C        enable compression\n");
-    printf("  -i key    private key file for authentication\n");
+    printf("  -i key    private key file for user authentication\n");
     printf("  -noagent  disable use of Pageant\n");
     printf("  -agent    enable use of Pageant\n");
+    printf("  -hostkey aa:bb:cc:...\n");
+    printf("            manually specify a host key (may be repeated)\n");
     printf("  -batch    disable all interactive prompts\n");
+    printf("  -sshlog file\n");
+    printf("  -sshrawlog file\n");
+    printf("            log protocol details to a file\n");
     cleanup_exit(1);
 }
 
@@ -2885,12 +2895,15 @@ void cmdline_error(char *p, ...)
     exit(1);
 }
 
+const int share_can_be_downstream = TRUE;
+const int share_can_be_upstream = FALSE;
+
 /*
  * Main program. Parse arguments etc.
  */
 int psftp_main(int argc, char *argv[])
 {
-    int i;
+    int i, ret;
     int portnumber = 0;
     char *userhost, *user;
     int mode = 0;
@@ -2986,7 +2999,7 @@ int psftp_main(int argc, char *argv[])
 	       " to connect\n");
     }
 
-    do_sftp(mode, modeflags, batchfile);
+    ret = do_sftp(mode, modeflags, batchfile);
 
     if (back != NULL && back->connected(backhandle)) {
 	char ch;
@@ -3000,5 +3013,5 @@ int psftp_main(int argc, char *argv[])
     console_provide_logctx(NULL);
     sk_cleanup();
 
-    return 0;
+    return ret;
 }

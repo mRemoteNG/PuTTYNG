@@ -98,6 +98,10 @@ SOURCE=..\..\..\be_nos_s.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\callback.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\cmdline.c
 # End Source File
 # Begin Source File
@@ -111,6 +115,10 @@ SOURCE=..\..\..\config.c
 # Begin Source File
 
 SOURCE=..\..\..\dialog.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\errsock.c
 # End Source File
 # Begin Source File
 
@@ -131,6 +139,10 @@ SOURCE=..\..\..\minibidi.c
 # Begin Source File
 
 SOURCE=..\..\..\misc.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\miscucs.c
 # End Source File
 # Begin Source File
 
@@ -222,6 +234,10 @@ SOURCE=..\..\..\windows\winhelp.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\windows\winhsock.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\winjump.c
 # End Source File
 # Begin Source File
@@ -239,6 +255,10 @@ SOURCE=..\..\..\windows\winprint.c
 # Begin Source File
 
 SOURCE=..\..\..\windows\winproxy.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winsecur.c
 # End Source File
 # Begin Source File
 
@@ -279,6 +299,10 @@ SOURCE=..\..\..\int64.h
 # Begin Source File
 
 SOURCE=..\..\..\ldisc.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\licence.h
 # End Source File
 # Begin Source File
 
@@ -330,6 +354,10 @@ SOURCE=..\..\..\unix\unix.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\version.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\windows\rcstuff.h
 # End Source File
 # Begin Source File
@@ -339,6 +367,10 @@ SOURCE=..\..\..\windows\win_res.h
 # Begin Source File
 
 SOURCE=..\..\..\windows\winhelp.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winsecur.h
 # End Source File
 # Begin Source File
 

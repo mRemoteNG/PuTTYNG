@@ -226,6 +226,10 @@ SOURCE=..\..\..\int64.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\licence.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\macosx\osx.h
 # End Source File
 # Begin Source File
@@ -254,6 +258,10 @@ SOURCE=..\..\..\ssh.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshbn.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\storage.h
 # End Source File
 # Begin Source File
@@ -263,6 +271,10 @@ SOURCE=..\..\..\tree234.h
 # Begin Source File
 
 SOURCE=..\..\..\unix\unix.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\version.h
 # End Source File
 # Begin Source File
 

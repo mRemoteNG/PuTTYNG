@@ -1,5 +1,3 @@
-\define{versionidpubkey} \versionid $Id: pubkey.but 9422 2012-03-04 01:01:11Z jacob $
-
 \C{pubkey} Using public keys for SSH authentication
 
 \H{pubkey-intro} \ii{Public key authentication} - an introduction
