@@ -2029,10 +2029,10 @@ static void *ed25519_openssh_createkey(const struct ssh_signkey *self,
     }
 
     getstring((const char**)blob, len, &q, &qlen);
-    if (!q)
+    if (!q || qlen != 64) {
+        ecdsa_freekey(ec);
         return NULL;
-    if (qlen != 64)
-        return NULL;
+    }
 
     ec->privateKey = bignum_from_bytes_le((const unsigned char *)q, 32);
 
@@ -2760,7 +2760,7 @@ void *ssh_ecdhkex_newkey(const struct ssh_kex *kex)
         bytes[0] &= 248;
         bytes[31] &= 127;
         bytes[31] |= 64;
-        key->privateKey = bignum_from_bytes(bytes, sizeof(bytes));
+        key->privateKey = bignum_from_bytes_le(bytes, sizeof(bytes));
         smemclr(bytes, sizeof(bytes));
         if (!key->privateKey) {
             sfree(key);
@@ -2937,9 +2937,12 @@ const unsigned char *ec_alg_oid(const struct ssh_signkey *alg,
     return extra->oid;
 }
 
-const int ec_nist_alg_and_curve_by_bits(int bits,
-                                        const struct ec_curve **curve,
-                                        const struct ssh_signkey **alg)
+const int ec_nist_curve_lengths[] = { 256, 384, 521 };
+const int n_ec_nist_curve_lengths = lenof(ec_nist_curve_lengths);
+
+int ec_nist_alg_and_curve_by_bits(int bits,
+                                  const struct ec_curve **curve,
+                                  const struct ssh_signkey **alg)
 {
     switch (bits) {
       case 256: *alg = &ssh_ecdsa_nistp256; break;
@@ -2951,9 +2954,9 @@ const int ec_nist_alg_and_curve_by_bits(int bits,
     return TRUE;
 }
 
-const int ec_ed_alg_and_curve_by_bits(int bits,
-                                      const struct ec_curve **curve,
-                                      const struct ssh_signkey **alg)
+int ec_ed_alg_and_curve_by_bits(int bits,
+                                const struct ec_curve **curve,
+                                const struct ssh_signkey **alg)
 {
     switch (bits) {
       case 256: *alg = &ssh_ecdsa_ed25519; break;

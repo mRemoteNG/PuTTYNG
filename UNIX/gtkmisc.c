@@ -175,6 +175,8 @@ GtkBox *our_dialog_make_action_hbox(GtkWindow *dlg)
 #if GTK_CHECK_VERSION(3,0,0)
     GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     our_dialog_set_action_area(dlg, hbox);
+    g_object_set(G_OBJECT(hbox), "margin", 0, (const char *)NULL);
+    g_object_set(G_OBJECT(hbox), "spacing", 8, (const char *)NULL);
     gtk_widget_show(hbox);
     return GTK_BOX(hbox);
 #else /* not GTK 3 */
@@ -197,4 +199,10 @@ void our_dialog_add_to_content_area(GtkWindow *dlg, GtkWidget *w,
         (GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dlg))),
          w, expand, fill, padding);
 #endif
+}
+
+char *buildinfo_gtk_version(void)
+{
+    return dupprintf("%d.%d.%d",
+                     GTK_MAJOR_VERSION, GTK_MINOR_VERSION, GTK_MICRO_VERSION);
 }
