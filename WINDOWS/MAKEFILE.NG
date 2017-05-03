@@ -154,7 +154,7 @@ $(BUILDDIR)PuTTYNG.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
 	type <<link_putty
  advapi32.lib $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj
  $(BUILDDIR)be_misc.obj $(BUILDDIR)callback.obj $(BUILDDIR)cmdline.obj
- comctl32.lib comdlg32.lib $(BUILDDIR)conf.obj $(BUILDDIR)config.obj
+ comdlg32.lib $(BUILDDIR)conf.obj $(BUILDDIR)config.obj
  $(BUILDDIR)cproxy.obj $(BUILDDIR)dialog.obj $(BUILDDIR)errsock.obj
  gdi32.lib imm32.lib $(BUILDDIR)ldisc.obj $(BUILDDIR)ldiscucs.obj
  $(BUILDDIR)logging.obj $(BUILDDIR)minibidi.obj $(BUILDDIR)misc.obj
@@ -176,13 +176,12 @@ $(BUILDDIR)PuTTYNG.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
  $(BUILDDIR)winctrls.obj $(BUILDDIR)windefs.obj $(BUILDDIR)windlg.obj
  $(BUILDDIR)window.obj $(BUILDDIR)wingss.obj $(BUILDDIR)winhandl.obj
  $(BUILDDIR)winhelp.obj $(BUILDDIR)winhsock.obj $(BUILDDIR)winjump.obj
- $(BUILDDIR)winmisc.obj winmm.lib $(BUILDDIR)winnet.obj
- $(BUILDDIR)winnoise.obj $(BUILDDIR)winnpc.obj $(BUILDDIR)winnps.obj
- $(BUILDDIR)winpgntc.obj $(BUILDDIR)winprint.obj $(BUILDDIR)winproxy.obj
- $(BUILDDIR)winsecur.obj $(BUILDDIR)winser.obj $(BUILDDIR)winshare.obj
- winspool.lib $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj
- $(BUILDDIR)winucs.obj $(BUILDDIR)winutils.obj $(BUILDDIR)winx11.obj
- $(BUILDDIR)x11fwd.obj
+ $(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj $(BUILDDIR)winnoise.obj
+ $(BUILDDIR)winnpc.obj $(BUILDDIR)winnps.obj $(BUILDDIR)winpgntc.obj
+ $(BUILDDIR)winprint.obj $(BUILDDIR)winproxy.obj $(BUILDDIR)winsecur.obj
+ $(BUILDDIR)winser.obj $(BUILDDIR)winshare.obj $(BUILDDIR)winstore.obj
+ $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj $(BUILDDIR)winutils.obj
+ $(BUILDDIR)winx11.obj $(BUILDDIR)x11fwd.obj
 <<
 	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)PuTTYNG.exe -map:$(BUILDDIR)PuTTYNG.map -nologo -subsystem:windows$(SUBSYSVER) @link_putty
 
