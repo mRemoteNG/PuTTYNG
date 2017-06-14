@@ -97,19 +97,237 @@
 
 # If you rename this file to `Makefile', you should change this line,
 # so that the .rsp files still depend on the correct makefile.
-MAKEFILE = Makefile.vc
+MAKEFILE = MAKEFILE.NG
 
 # C compilation flags
 CFLAGS = /nologo /W3 /O1 -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ /D_WINDOWS /D_WIN32_WINDOWS=0x500 /DWINVER=0x500 /D_CRT_SECURE_NO_WARNINGS
 LFLAGS = /incremental:no /dynamicbase /nxcompat
-RCFLAGS = -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ -DWIN32 -D_WIN32 -DWINVER=0x0400 /DPUTTYNG
+RCFLAGS = -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ -DWIN32 -D_WIN32 -DWINVER=0x0400 -DPUTTYNG
 
 CFLAGS = $(CFLAGS) /DHAS_GSSAPI /DPUTTYNG
 
 
-all: $(BUILDDIR)PuTTYNG.exe
-		
-$(BUILDDIR)PuTTYNG.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
+all: $(BUILDDIR)puttyng.exe
+
+$(BUILDDIR)pageant.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)conf.obj \
+		$(BUILDDIR)misc.obj $(BUILDDIR)pageant.obj \
+		$(BUILDDIR)pageant.res $(BUILDDIR)sshaes.obj \
+		$(BUILDDIR)sshbn.obj $(BUILDDIR)sshdes.obj \
+		$(BUILDDIR)sshdss.obj $(BUILDDIR)sshecc.obj \
+		$(BUILDDIR)sshmd5.obj $(BUILDDIR)sshpubk.obj \
+		$(BUILDDIR)sshrsa.obj $(BUILDDIR)sshsh256.obj \
+		$(BUILDDIR)sshsh512.obj $(BUILDDIR)sshsha.obj \
+		$(BUILDDIR)tree234.obj $(BUILDDIR)version.obj \
+		$(BUILDDIR)winhelp.obj $(BUILDDIR)winmisc.obj \
+		$(BUILDDIR)winpgnt.obj $(BUILDDIR)winpgntc.obj \
+		$(BUILDDIR)winsecur.obj $(BUILDDIR)winutils.obj
+	type <<link_pageant
+ advapi32.lib $(BUILDDIR)aqsync.obj comdlg32.lib $(BUILDDIR)conf.obj
+ gdi32.lib imm32.lib $(BUILDDIR)misc.obj ole32.lib
+ $(BUILDDIR)pageant.obj $(BUILDDIR)pageant.res shell32.lib
+ $(BUILDDIR)sshaes.obj $(BUILDDIR)sshbn.obj $(BUILDDIR)sshdes.obj
+ $(BUILDDIR)sshdss.obj $(BUILDDIR)sshecc.obj $(BUILDDIR)sshmd5.obj
+ $(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrsa.obj $(BUILDDIR)sshsh256.obj
+ $(BUILDDIR)sshsh512.obj $(BUILDDIR)sshsha.obj $(BUILDDIR)tree234.obj
+ user32.lib $(BUILDDIR)version.obj $(BUILDDIR)winhelp.obj
+ $(BUILDDIR)winmisc.obj $(BUILDDIR)winpgnt.obj $(BUILDDIR)winpgntc.obj
+ $(BUILDDIR)winsecur.obj $(BUILDDIR)winutils.obj
+<<
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)pageant.exe -map:$(BUILDDIR)pageant.map -nologo -subsystem:windows$(SUBSYSVER) @link_pageant
+
+$(BUILDDIR)plink.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
+		$(BUILDDIR)be_misc.obj $(BUILDDIR)callback.obj \
+		$(BUILDDIR)cmdline.obj $(BUILDDIR)conf.obj \
+		$(BUILDDIR)cproxy.obj $(BUILDDIR)errsock.obj \
+		$(BUILDDIR)ldisc.obj $(BUILDDIR)logging.obj \
+		$(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj \
+		$(BUILDDIR)noterm.obj $(BUILDDIR)pgssapi.obj \
+		$(BUILDDIR)pinger.obj $(BUILDDIR)plink.res \
+		$(BUILDDIR)portfwd.obj $(BUILDDIR)proxy.obj \
+		$(BUILDDIR)raw.obj $(BUILDDIR)rlogin.obj \
+		$(BUILDDIR)settings.obj $(BUILDDIR)ssh.obj \
+		$(BUILDDIR)sshaes.obj $(BUILDDIR)ssharcf.obj \
+		$(BUILDDIR)sshblowf.obj $(BUILDDIR)sshbn.obj \
+		$(BUILDDIR)sshccp.obj $(BUILDDIR)sshcrc.obj \
+		$(BUILDDIR)sshcrcda.obj $(BUILDDIR)sshdes.obj \
+		$(BUILDDIR)sshdh.obj $(BUILDDIR)sshdss.obj \
+		$(BUILDDIR)sshecc.obj $(BUILDDIR)sshgssc.obj \
+		$(BUILDDIR)sshmd5.obj $(BUILDDIR)sshpubk.obj \
+		$(BUILDDIR)sshrand.obj $(BUILDDIR)sshrsa.obj \
+		$(BUILDDIR)sshsh256.obj $(BUILDDIR)sshsh512.obj \
+		$(BUILDDIR)sshsha.obj $(BUILDDIR)sshshare.obj \
+		$(BUILDDIR)sshzlib.obj $(BUILDDIR)telnet.obj \
+		$(BUILDDIR)timing.obj $(BUILDDIR)tree234.obj \
+		$(BUILDDIR)version.obj $(BUILDDIR)wildcard.obj \
+		$(BUILDDIR)wincapi.obj $(BUILDDIR)wincons.obj \
+		$(BUILDDIR)windefs.obj $(BUILDDIR)wingss.obj \
+		$(BUILDDIR)winhandl.obj $(BUILDDIR)winhsock.obj \
+		$(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj \
+		$(BUILDDIR)winnoise.obj $(BUILDDIR)winnojmp.obj \
+		$(BUILDDIR)winnpc.obj $(BUILDDIR)winnps.obj \
+		$(BUILDDIR)winpgntc.obj $(BUILDDIR)winplink.obj \
+		$(BUILDDIR)winproxy.obj $(BUILDDIR)winsecur.obj \
+		$(BUILDDIR)winser.obj $(BUILDDIR)winshare.obj \
+		$(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj \
+		$(BUILDDIR)winucs.obj $(BUILDDIR)winx11.obj \
+		$(BUILDDIR)x11fwd.obj
+	type <<link_plink
+ advapi32.lib $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj
+ $(BUILDDIR)be_misc.obj $(BUILDDIR)callback.obj $(BUILDDIR)cmdline.obj
+ comdlg32.lib $(BUILDDIR)conf.obj $(BUILDDIR)cproxy.obj
+ $(BUILDDIR)errsock.obj gdi32.lib imm32.lib $(BUILDDIR)ldisc.obj
+ $(BUILDDIR)logging.obj $(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj
+ $(BUILDDIR)noterm.obj ole32.lib $(BUILDDIR)pgssapi.obj
+ $(BUILDDIR)pinger.obj $(BUILDDIR)plink.res $(BUILDDIR)portfwd.obj
+ $(BUILDDIR)proxy.obj $(BUILDDIR)raw.obj $(BUILDDIR)rlogin.obj
+ $(BUILDDIR)settings.obj shell32.lib $(BUILDDIR)ssh.obj
+ $(BUILDDIR)sshaes.obj $(BUILDDIR)ssharcf.obj $(BUILDDIR)sshblowf.obj
+ $(BUILDDIR)sshbn.obj $(BUILDDIR)sshccp.obj $(BUILDDIR)sshcrc.obj
+ $(BUILDDIR)sshcrcda.obj $(BUILDDIR)sshdes.obj $(BUILDDIR)sshdh.obj
+ $(BUILDDIR)sshdss.obj $(BUILDDIR)sshecc.obj $(BUILDDIR)sshgssc.obj
+ $(BUILDDIR)sshmd5.obj $(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrand.obj
+ $(BUILDDIR)sshrsa.obj $(BUILDDIR)sshsh256.obj $(BUILDDIR)sshsh512.obj
+ $(BUILDDIR)sshsha.obj $(BUILDDIR)sshshare.obj $(BUILDDIR)sshzlib.obj
+ $(BUILDDIR)telnet.obj $(BUILDDIR)timing.obj $(BUILDDIR)tree234.obj
+ user32.lib $(BUILDDIR)version.obj $(BUILDDIR)wildcard.obj
+ $(BUILDDIR)wincapi.obj $(BUILDDIR)wincons.obj $(BUILDDIR)windefs.obj
+ $(BUILDDIR)wingss.obj $(BUILDDIR)winhandl.obj $(BUILDDIR)winhsock.obj
+ $(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj $(BUILDDIR)winnoise.obj
+ $(BUILDDIR)winnojmp.obj $(BUILDDIR)winnpc.obj $(BUILDDIR)winnps.obj
+ $(BUILDDIR)winpgntc.obj $(BUILDDIR)winplink.obj $(BUILDDIR)winproxy.obj
+ $(BUILDDIR)winsecur.obj $(BUILDDIR)winser.obj $(BUILDDIR)winshare.obj
+ $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj
+ $(BUILDDIR)winx11.obj $(BUILDDIR)x11fwd.obj
+<<
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)plink.exe -map:$(BUILDDIR)plink.map -nologo -subsystem:console$(SUBSYSVER) @link_plink
+
+$(BUILDDIR)pscp.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_misc.obj \
+		$(BUILDDIR)be_ssh.obj $(BUILDDIR)callback.obj \
+		$(BUILDDIR)cmdline.obj $(BUILDDIR)conf.obj \
+		$(BUILDDIR)cproxy.obj $(BUILDDIR)errsock.obj \
+		$(BUILDDIR)int64.obj $(BUILDDIR)logging.obj \
+		$(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj \
+		$(BUILDDIR)pgssapi.obj $(BUILDDIR)pinger.obj \
+		$(BUILDDIR)portfwd.obj $(BUILDDIR)proxy.obj \
+		$(BUILDDIR)pscp.obj $(BUILDDIR)pscp.res \
+		$(BUILDDIR)settings.obj $(BUILDDIR)sftp.obj \
+		$(BUILDDIR)ssh.obj $(BUILDDIR)sshaes.obj \
+		$(BUILDDIR)ssharcf.obj $(BUILDDIR)sshblowf.obj \
+		$(BUILDDIR)sshbn.obj $(BUILDDIR)sshccp.obj \
+		$(BUILDDIR)sshcrc.obj $(BUILDDIR)sshcrcda.obj \
+		$(BUILDDIR)sshdes.obj $(BUILDDIR)sshdh.obj \
+		$(BUILDDIR)sshdss.obj $(BUILDDIR)sshecc.obj \
+		$(BUILDDIR)sshgssc.obj $(BUILDDIR)sshmd5.obj \
+		$(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrand.obj \
+		$(BUILDDIR)sshrsa.obj $(BUILDDIR)sshsh256.obj \
+		$(BUILDDIR)sshsh512.obj $(BUILDDIR)sshsha.obj \
+		$(BUILDDIR)sshshare.obj $(BUILDDIR)sshzlib.obj \
+		$(BUILDDIR)timing.obj $(BUILDDIR)tree234.obj \
+		$(BUILDDIR)version.obj $(BUILDDIR)wildcard.obj \
+		$(BUILDDIR)wincapi.obj $(BUILDDIR)wincons.obj \
+		$(BUILDDIR)windefs.obj $(BUILDDIR)wingss.obj \
+		$(BUILDDIR)winhandl.obj $(BUILDDIR)winhsock.obj \
+		$(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj \
+		$(BUILDDIR)winnoise.obj $(BUILDDIR)winnojmp.obj \
+		$(BUILDDIR)winnpc.obj $(BUILDDIR)winnps.obj \
+		$(BUILDDIR)winpgntc.obj $(BUILDDIR)winproxy.obj \
+		$(BUILDDIR)winsecur.obj $(BUILDDIR)winsftp.obj \
+		$(BUILDDIR)winshare.obj $(BUILDDIR)winstore.obj \
+		$(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj \
+		$(BUILDDIR)x11fwd.obj
+	type <<link_pscp
+ advapi32.lib $(BUILDDIR)aqsync.obj $(BUILDDIR)be_misc.obj
+ $(BUILDDIR)be_ssh.obj $(BUILDDIR)callback.obj $(BUILDDIR)cmdline.obj
+ comdlg32.lib $(BUILDDIR)conf.obj $(BUILDDIR)cproxy.obj
+ $(BUILDDIR)errsock.obj gdi32.lib imm32.lib $(BUILDDIR)int64.obj
+ $(BUILDDIR)logging.obj $(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj
+ ole32.lib $(BUILDDIR)pgssapi.obj $(BUILDDIR)pinger.obj
+ $(BUILDDIR)portfwd.obj $(BUILDDIR)proxy.obj $(BUILDDIR)pscp.obj
+ $(BUILDDIR)pscp.res $(BUILDDIR)settings.obj $(BUILDDIR)sftp.obj
+ shell32.lib $(BUILDDIR)ssh.obj $(BUILDDIR)sshaes.obj
+ $(BUILDDIR)ssharcf.obj $(BUILDDIR)sshblowf.obj $(BUILDDIR)sshbn.obj
+ $(BUILDDIR)sshccp.obj $(BUILDDIR)sshcrc.obj $(BUILDDIR)sshcrcda.obj
+ $(BUILDDIR)sshdes.obj $(BUILDDIR)sshdh.obj $(BUILDDIR)sshdss.obj
+ $(BUILDDIR)sshecc.obj $(BUILDDIR)sshgssc.obj $(BUILDDIR)sshmd5.obj
+ $(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrand.obj $(BUILDDIR)sshrsa.obj
+ $(BUILDDIR)sshsh256.obj $(BUILDDIR)sshsh512.obj $(BUILDDIR)sshsha.obj
+ $(BUILDDIR)sshshare.obj $(BUILDDIR)sshzlib.obj $(BUILDDIR)timing.obj
+ $(BUILDDIR)tree234.obj user32.lib $(BUILDDIR)version.obj
+ $(BUILDDIR)wildcard.obj $(BUILDDIR)wincapi.obj $(BUILDDIR)wincons.obj
+ $(BUILDDIR)windefs.obj $(BUILDDIR)wingss.obj $(BUILDDIR)winhandl.obj
+ $(BUILDDIR)winhsock.obj $(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj
+ $(BUILDDIR)winnoise.obj $(BUILDDIR)winnojmp.obj $(BUILDDIR)winnpc.obj
+ $(BUILDDIR)winnps.obj $(BUILDDIR)winpgntc.obj $(BUILDDIR)winproxy.obj
+ $(BUILDDIR)winsecur.obj $(BUILDDIR)winsftp.obj $(BUILDDIR)winshare.obj
+ $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj
+ $(BUILDDIR)x11fwd.obj
+<<
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)pscp.exe -map:$(BUILDDIR)pscp.map -nologo -subsystem:console$(SUBSYSVER) @link_pscp
+
+$(BUILDDIR)psftp.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_misc.obj \
+		$(BUILDDIR)be_ssh.obj $(BUILDDIR)callback.obj \
+		$(BUILDDIR)cmdline.obj $(BUILDDIR)conf.obj \
+		$(BUILDDIR)cproxy.obj $(BUILDDIR)errsock.obj \
+		$(BUILDDIR)int64.obj $(BUILDDIR)logging.obj \
+		$(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj \
+		$(BUILDDIR)pgssapi.obj $(BUILDDIR)pinger.obj \
+		$(BUILDDIR)portfwd.obj $(BUILDDIR)proxy.obj \
+		$(BUILDDIR)psftp.obj $(BUILDDIR)psftp.res \
+		$(BUILDDIR)settings.obj $(BUILDDIR)sftp.obj \
+		$(BUILDDIR)ssh.obj $(BUILDDIR)sshaes.obj \
+		$(BUILDDIR)ssharcf.obj $(BUILDDIR)sshblowf.obj \
+		$(BUILDDIR)sshbn.obj $(BUILDDIR)sshccp.obj \
+		$(BUILDDIR)sshcrc.obj $(BUILDDIR)sshcrcda.obj \
+		$(BUILDDIR)sshdes.obj $(BUILDDIR)sshdh.obj \
+		$(BUILDDIR)sshdss.obj $(BUILDDIR)sshecc.obj \
+		$(BUILDDIR)sshgssc.obj $(BUILDDIR)sshmd5.obj \
+		$(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrand.obj \
+		$(BUILDDIR)sshrsa.obj $(BUILDDIR)sshsh256.obj \
+		$(BUILDDIR)sshsh512.obj $(BUILDDIR)sshsha.obj \
+		$(BUILDDIR)sshshare.obj $(BUILDDIR)sshzlib.obj \
+		$(BUILDDIR)timing.obj $(BUILDDIR)tree234.obj \
+		$(BUILDDIR)version.obj $(BUILDDIR)wildcard.obj \
+		$(BUILDDIR)wincapi.obj $(BUILDDIR)wincons.obj \
+		$(BUILDDIR)windefs.obj $(BUILDDIR)wingss.obj \
+		$(BUILDDIR)winhandl.obj $(BUILDDIR)winhsock.obj \
+		$(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj \
+		$(BUILDDIR)winnoise.obj $(BUILDDIR)winnojmp.obj \
+		$(BUILDDIR)winnpc.obj $(BUILDDIR)winnps.obj \
+		$(BUILDDIR)winpgntc.obj $(BUILDDIR)winproxy.obj \
+		$(BUILDDIR)winsecur.obj $(BUILDDIR)winsftp.obj \
+		$(BUILDDIR)winshare.obj $(BUILDDIR)winstore.obj \
+		$(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj \
+		$(BUILDDIR)x11fwd.obj
+	type <<link_psftp
+ advapi32.lib $(BUILDDIR)aqsync.obj $(BUILDDIR)be_misc.obj
+ $(BUILDDIR)be_ssh.obj $(BUILDDIR)callback.obj $(BUILDDIR)cmdline.obj
+ comdlg32.lib $(BUILDDIR)conf.obj $(BUILDDIR)cproxy.obj
+ $(BUILDDIR)errsock.obj gdi32.lib imm32.lib $(BUILDDIR)int64.obj
+ $(BUILDDIR)logging.obj $(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj
+ ole32.lib $(BUILDDIR)pgssapi.obj $(BUILDDIR)pinger.obj
+ $(BUILDDIR)portfwd.obj $(BUILDDIR)proxy.obj $(BUILDDIR)psftp.obj
+ $(BUILDDIR)psftp.res $(BUILDDIR)settings.obj $(BUILDDIR)sftp.obj
+ shell32.lib $(BUILDDIR)ssh.obj $(BUILDDIR)sshaes.obj
+ $(BUILDDIR)ssharcf.obj $(BUILDDIR)sshblowf.obj $(BUILDDIR)sshbn.obj
+ $(BUILDDIR)sshccp.obj $(BUILDDIR)sshcrc.obj $(BUILDDIR)sshcrcda.obj
+ $(BUILDDIR)sshdes.obj $(BUILDDIR)sshdh.obj $(BUILDDIR)sshdss.obj
+ $(BUILDDIR)sshecc.obj $(BUILDDIR)sshgssc.obj $(BUILDDIR)sshmd5.obj
+ $(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrand.obj $(BUILDDIR)sshrsa.obj
+ $(BUILDDIR)sshsh256.obj $(BUILDDIR)sshsh512.obj $(BUILDDIR)sshsha.obj
+ $(BUILDDIR)sshshare.obj $(BUILDDIR)sshzlib.obj $(BUILDDIR)timing.obj
+ $(BUILDDIR)tree234.obj user32.lib $(BUILDDIR)version.obj
+ $(BUILDDIR)wildcard.obj $(BUILDDIR)wincapi.obj $(BUILDDIR)wincons.obj
+ $(BUILDDIR)windefs.obj $(BUILDDIR)wingss.obj $(BUILDDIR)winhandl.obj
+ $(BUILDDIR)winhsock.obj $(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj
+ $(BUILDDIR)winnoise.obj $(BUILDDIR)winnojmp.obj $(BUILDDIR)winnpc.obj
+ $(BUILDDIR)winnps.obj $(BUILDDIR)winpgntc.obj $(BUILDDIR)winproxy.obj
+ $(BUILDDIR)winsecur.obj $(BUILDDIR)winsftp.obj $(BUILDDIR)winshare.obj
+ $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj
+ $(BUILDDIR)x11fwd.obj
+<<
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)psftp.exe -map:$(BUILDDIR)psftp.map -nologo -subsystem:console$(SUBSYSVER) @link_psftp
+
+$(BUILDDIR)puttyng.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
 		$(BUILDDIR)be_misc.obj $(BUILDDIR)callback.obj \
 		$(BUILDDIR)cmdline.obj $(BUILDDIR)conf.obj \
 		$(BUILDDIR)config.obj $(BUILDDIR)cproxy.obj \
@@ -183,7 +401,102 @@ $(BUILDDIR)PuTTYNG.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
  $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj $(BUILDDIR)winutils.obj
  $(BUILDDIR)winx11.obj $(BUILDDIR)x11fwd.obj
 <<
-	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)PuTTYNG.exe -map:$(BUILDDIR)PuTTYNG.map -nologo -subsystem:windows$(SUBSYSVER) @link_putty
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)puttyng.exe -map:$(BUILDDIR)putty.map -nologo -subsystem:windows$(SUBSYSVER) @link_putty
+
+$(BUILDDIR)puttygen.exe: $(BUILDDIR)conf.obj $(BUILDDIR)import.obj \
+		$(BUILDDIR)misc.obj $(BUILDDIR)notiming.obj \
+		$(BUILDDIR)puttygen.res $(BUILDDIR)sshaes.obj \
+		$(BUILDDIR)sshbcrypt.obj $(BUILDDIR)sshblowf.obj \
+		$(BUILDDIR)sshbn.obj $(BUILDDIR)sshdes.obj \
+		$(BUILDDIR)sshdss.obj $(BUILDDIR)sshdssg.obj \
+		$(BUILDDIR)sshecc.obj $(BUILDDIR)sshecdsag.obj \
+		$(BUILDDIR)sshmd5.obj $(BUILDDIR)sshprime.obj \
+		$(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrand.obj \
+		$(BUILDDIR)sshrsa.obj $(BUILDDIR)sshrsag.obj \
+		$(BUILDDIR)sshsh256.obj $(BUILDDIR)sshsh512.obj \
+		$(BUILDDIR)sshsha.obj $(BUILDDIR)tree234.obj \
+		$(BUILDDIR)version.obj $(BUILDDIR)winctrls.obj \
+		$(BUILDDIR)winhelp.obj $(BUILDDIR)winmisc.obj \
+		$(BUILDDIR)winnoise.obj $(BUILDDIR)winnojmp.obj \
+		$(BUILDDIR)winpgen.obj $(BUILDDIR)winsecur.obj \
+		$(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj \
+		$(BUILDDIR)winutils.obj
+	type <<link_puttygen
+ advapi32.lib comdlg32.lib $(BUILDDIR)conf.obj gdi32.lib imm32.lib
+ $(BUILDDIR)import.obj $(BUILDDIR)misc.obj $(BUILDDIR)notiming.obj
+ ole32.lib $(BUILDDIR)puttygen.res shell32.lib $(BUILDDIR)sshaes.obj
+ $(BUILDDIR)sshbcrypt.obj $(BUILDDIR)sshblowf.obj $(BUILDDIR)sshbn.obj
+ $(BUILDDIR)sshdes.obj $(BUILDDIR)sshdss.obj $(BUILDDIR)sshdssg.obj
+ $(BUILDDIR)sshecc.obj $(BUILDDIR)sshecdsag.obj $(BUILDDIR)sshmd5.obj
+ $(BUILDDIR)sshprime.obj $(BUILDDIR)sshpubk.obj $(BUILDDIR)sshrand.obj
+ $(BUILDDIR)sshrsa.obj $(BUILDDIR)sshrsag.obj $(BUILDDIR)sshsh256.obj
+ $(BUILDDIR)sshsh512.obj $(BUILDDIR)sshsha.obj $(BUILDDIR)tree234.obj
+ user32.lib $(BUILDDIR)version.obj $(BUILDDIR)winctrls.obj
+ $(BUILDDIR)winhelp.obj $(BUILDDIR)winmisc.obj $(BUILDDIR)winnoise.obj
+ $(BUILDDIR)winnojmp.obj $(BUILDDIR)winpgen.obj $(BUILDDIR)winsecur.obj
+ $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj $(BUILDDIR)winutils.obj
+<<
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)puttygen.exe -map:$(BUILDDIR)puttygen.map -nologo -subsystem:windows$(SUBSYSVER) @link_puttygen
+
+$(BUILDDIR)puttytel.exe: $(BUILDDIR)be_misc.obj $(BUILDDIR)be_nos_s.obj \
+		$(BUILDDIR)callback.obj $(BUILDDIR)cmdline.obj \
+		$(BUILDDIR)conf.obj $(BUILDDIR)config.obj \
+		$(BUILDDIR)dialog.obj $(BUILDDIR)errsock.obj \
+		$(BUILDDIR)ldisc.obj $(BUILDDIR)ldiscucs.obj \
+		$(BUILDDIR)logging.obj $(BUILDDIR)minibidi.obj \
+		$(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj \
+		$(BUILDDIR)nocproxy.obj $(BUILDDIR)nogss.obj \
+		$(BUILDDIR)pinger.obj $(BUILDDIR)proxy.obj \
+		$(BUILDDIR)puttytel.res $(BUILDDIR)raw.obj \
+		$(BUILDDIR)rlogin.obj $(BUILDDIR)sercfg.obj \
+		$(BUILDDIR)settings.obj $(BUILDDIR)sizetip.obj \
+		$(BUILDDIR)telnet.obj $(BUILDDIR)terminal.obj \
+		$(BUILDDIR)timing.obj $(BUILDDIR)tree234.obj \
+		$(BUILDDIR)version.obj $(BUILDDIR)wcwidth.obj \
+		$(BUILDDIR)wincfg.obj $(BUILDDIR)winctrls.obj \
+		$(BUILDDIR)windefs.obj $(BUILDDIR)windlg.obj \
+		$(BUILDDIR)window.obj $(BUILDDIR)winhandl.obj \
+		$(BUILDDIR)winhelp.obj $(BUILDDIR)winhsock.obj \
+		$(BUILDDIR)winjump.obj $(BUILDDIR)winmisc.obj \
+		$(BUILDDIR)winnet.obj $(BUILDDIR)winprint.obj \
+		$(BUILDDIR)winproxy.obj $(BUILDDIR)winsecur.obj \
+		$(BUILDDIR)winser.obj $(BUILDDIR)winstore.obj \
+		$(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj \
+		$(BUILDDIR)winutils.obj
+	type <<link_puttytel
+ advapi32.lib $(BUILDDIR)be_misc.obj $(BUILDDIR)be_nos_s.obj
+ $(BUILDDIR)callback.obj $(BUILDDIR)cmdline.obj comdlg32.lib
+ $(BUILDDIR)conf.obj $(BUILDDIR)config.obj $(BUILDDIR)dialog.obj
+ $(BUILDDIR)errsock.obj gdi32.lib imm32.lib $(BUILDDIR)ldisc.obj
+ $(BUILDDIR)ldiscucs.obj $(BUILDDIR)logging.obj $(BUILDDIR)minibidi.obj
+ $(BUILDDIR)misc.obj $(BUILDDIR)miscucs.obj $(BUILDDIR)nocproxy.obj
+ $(BUILDDIR)nogss.obj ole32.lib $(BUILDDIR)pinger.obj
+ $(BUILDDIR)proxy.obj $(BUILDDIR)puttytel.res $(BUILDDIR)raw.obj
+ $(BUILDDIR)rlogin.obj $(BUILDDIR)sercfg.obj $(BUILDDIR)settings.obj
+ shell32.lib $(BUILDDIR)sizetip.obj $(BUILDDIR)telnet.obj
+ $(BUILDDIR)terminal.obj $(BUILDDIR)timing.obj $(BUILDDIR)tree234.obj
+ user32.lib $(BUILDDIR)version.obj $(BUILDDIR)wcwidth.obj
+ $(BUILDDIR)wincfg.obj $(BUILDDIR)winctrls.obj $(BUILDDIR)windefs.obj
+ $(BUILDDIR)windlg.obj $(BUILDDIR)window.obj $(BUILDDIR)winhandl.obj
+ $(BUILDDIR)winhelp.obj $(BUILDDIR)winhsock.obj $(BUILDDIR)winjump.obj
+ $(BUILDDIR)winmisc.obj $(BUILDDIR)winnet.obj $(BUILDDIR)winprint.obj
+ $(BUILDDIR)winproxy.obj $(BUILDDIR)winsecur.obj $(BUILDDIR)winser.obj
+ $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj
+ $(BUILDDIR)winutils.obj
+<<
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)puttytel.exe -map:$(BUILDDIR)puttytel.map -nologo -subsystem:windows$(SUBSYSVER) @link_puttytel
+
+$(BUILDDIR)testbn.exe: $(BUILDDIR)conf.obj $(BUILDDIR)misc.obj \
+		$(BUILDDIR)sshbn.obj $(BUILDDIR)testbn.obj \
+		$(BUILDDIR)tree234.obj $(BUILDDIR)version.obj \
+		$(BUILDDIR)winmisc.obj
+	type <<link_testbn
+ advapi32.lib comdlg32.lib $(BUILDDIR)conf.obj gdi32.lib imm32.lib
+ $(BUILDDIR)misc.obj ole32.lib shell32.lib $(BUILDDIR)sshbn.obj
+ $(BUILDDIR)testbn.obj $(BUILDDIR)tree234.obj user32.lib
+ $(BUILDDIR)version.obj $(BUILDDIR)winmisc.obj
+<<
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)testbn.exe -map:$(BUILDDIR)testbn.map -nologo -subsystem:console$(SUBSYSVER) @link_testbn
 
 $(BUILDDIR)aqsync.obj: ..\aqsync.c ..\putty.h ..\puttyps.h ..\network.h \
 		..\misc.h ..\windows\winstuff.h ..\unix\unix.h ..\puttymem.h \
@@ -769,6 +1082,9 @@ $(BUILDDIR)xpmputty.obj: ..\unix\xpmputty.c
 
 {..\unix\}.c.obj::
 	cl /Fo$(BUILDDIR) $(COMPAT) $(CFLAGS) $(XFLAGS) /c $<
+
+cleantestprogs:
+	-del $(BUILDDIR)testbn.exe
 
 clean: tidy
 	-del $(BUILDDIR)*.exe
