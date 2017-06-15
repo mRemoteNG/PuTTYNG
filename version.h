@@ -2,5 +2,5 @@
 #define RELEASE 0.69
 #define TEXTVER "Release 0.69"
 #define SSHVER "PuTTY-Release-0.69"
-#define BINARY_VERSION 0,69,0,0
+#define BINARY_VERSION 0,69,0,1
 #define SOURCE_COMMIT "b1829b81b5c0d12dcc91f6b50b0b4d83c3df6a8e"
