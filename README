@@ -1,19 +1,4 @@
-PuTTYNG Specific Changes:
-BE_ALL_S.C
-CMDLINE.C
-PUTTY.H
-WINDOWS/PUTTY.RC
-WINDOWS/VERSION.RC2 
-WINDOWS/WINDOW.C
-
-MAKEFILE.NG (merge changes from Makefile.vc):
-  * MAKEFILE = MAKEFILE.NG
-  * rename putty.exe to puttyng.exe
-  * change the "all" target to only build puttyng.exe
-
------
-
-This is the README for the source archive of PuTTY, a free Win32
+This is the README for the source archive of PuTTY, a free Windows
 and Unix Telnet and SSH client.
 
 If you want to rebuild PuTTY from source, we provide a variety of
@@ -142,11 +127,11 @@ Documentation (in various formats including Windows Help and Unix
 `man' pages) is built from the Halibut (`.but') files in the `doc'
 subdirectory using `doc/Makefile'. If you aren't using one of our
 source snapshots, you'll need to do this yourself. Halibut can be
-found at <http://www.chiark.greenend.org.uk/~sgtatham/halibut/>.
+found at <https://www.chiark.greenend.org.uk/~sgtatham/halibut/>.
 
 The PuTTY home web site is
 
-    http://www.chiark.greenend.org.uk/~sgtatham/putty/
+    https://www.chiark.greenend.org.uk/~sgtatham/putty/
 
 If you want to send bug reports or feature requests, please read the
 Feedback section of the web site before doing so. Sending one-line
