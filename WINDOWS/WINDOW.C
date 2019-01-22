@@ -726,7 +726,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	if (conf_get_int(conf, CONF_sunken_edge))
 	    exwinmode |= WS_EX_CLIENTEDGE;
 #ifdef PUTTYNG
-	winmode &= ~(WS_POPUPWINDOW);
+	if (hwnd_parent != 0)
+	{
+		winmode &= ~(WS_POPUPWINDOW);
+	}
 #endif // PUTTYNG
 	hwnd = CreateWindowExW(exwinmode, uappname, uappname,
                                winmode, CW_USEDEFAULT, CW_USEDEFAULT,
