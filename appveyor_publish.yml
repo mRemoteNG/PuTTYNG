@@ -1,5 +1,6 @@
 version: 0.70.{build}
 skip_non_tags: true
+skip_tags: true
 skip_branch_with_pr: true
 environment:
   cert_path: cert\CodeSigning_Cert_mRemoteNG_DigiCert.p12
