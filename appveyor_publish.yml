@@ -6,12 +6,11 @@ environment:
   cert_decrypt_pwd:
     secure: QK1ldldzIUSVA0u+OtbHixPmsXHAO9ksOKcyByq0FHM=
   cert_pwd:
-		secure: Fni66m2OgoTxjRzahUNUUNHl5gGwTXLvXIMQYiOMqX8=
+    secure: Fni66m2OgoTxjRzahUNUUNHl5gGwTXLvXIMQYiOMqX8=
 image: Visual Studio 2017
 clone_depth: 1
 install:
 - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
-- cmd: appveyor-tools\secure-file -decrypt %cert_path%.enc -secret %cert_decrypt_pwd%
 build_script:
 - cmd: >-
     cd %APPVEYOR_BUILD_FOLDER%\WINDOWS
@@ -21,8 +20,13 @@ build_script:
     nmake -f MAKEFILE.NG clean
 
     nmake -f MAKEFILE.NG VER="/DNG_VER_MAJOR=0 /DNG_VER_MINOR=0 /DNG_VER_BUILD=0 /DNG_VER_REVISION=0"
+
+    cd %APPVEYOR_BUILD_FOLDER%
 after_build:
-- ps: "WINDOWS\sign_binaries.ps1" -TargetDir "WINDOWS" -ConfigurationName "Release" -CertificatePath "${env.cert_path}" -CertificatePassword "${env.cert_pwd}"
+- cmd: >-
+    appveyor-tools\secure-file -decrypt %cert_path%.enc -secret %cert_decrypt_pwd%
+
+    powershell.exe -ExecutionPolicy Bypass -File %APPVEYOR_BUILD_FOLDER%\WINDOWS\sign_binaries.ps1 -TargetDir WINDOWS -ConfigurationName Release -CertificatePath %cert_path% -CertificatePassword %cert_pwd%
 artifacts:
 - path: WINDOWS\puttyng.exe
   name: puttyng.exe
