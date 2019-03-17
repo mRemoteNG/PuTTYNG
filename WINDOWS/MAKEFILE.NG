@@ -105,7 +105,7 @@ RCFLAGS = -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ -DWIN32 -D_WIN32 -DWINV
 CFLAGS = $(CFLAGS) /DHAS_GSSAPI /DPUTTYNG
 
 
-all: $(BUILDDIR)puttyng.exe
+all: $(BUILDDIR)PuTTYNG.exe
 
 $(BUILDDIR)pageant.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)conf.obj \
 		$(BUILDDIR)ecc.obj $(BUILDDIR)marshal.obj \
@@ -422,7 +422,7 @@ $(BUILDDIR)psftp.exe: $(BUILDDIR)agentf.obj $(BUILDDIR)aqsync.obj \
 <<
 	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)psftp.exe -map:$(BUILDDIR)psftp.map -nologo -subsystem:console$(SUBSYSVER) @link_psftp
 
-$(BUILDDIR)puttyng.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
+$(BUILDDIR)PuTTYNG.exe: $(BUILDDIR)agentf.obj $(BUILDDIR)aqsync.obj \
 		$(BUILDDIR)be_all_s.obj $(BUILDDIR)be_misc.obj \
 		$(BUILDDIR)callback.obj $(BUILDDIR)cmdline.obj \
 		$(BUILDDIR)conf.obj $(BUILDDIR)config.obj \
@@ -524,7 +524,7 @@ $(BUILDDIR)puttyng.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
  $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj
  $(BUILDDIR)winutils.obj $(BUILDDIR)winx11.obj $(BUILDDIR)x11fwd.obj
 <<
-	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)puttyng.exe -map:$(BUILDDIR)putty.map -nologo -subsystem:windows$(SUBSYSVER) @link_putty
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)PuTTYNG.exe -map:$(BUILDDIR)putty.map -nologo -subsystem:windows$(SUBSYSVER) @link_putty
 
 $(BUILDDIR)puttygen.exe: $(BUILDDIR)conf.obj $(BUILDDIR)ecc.obj \
 		$(BUILDDIR)import.obj $(BUILDDIR)marshal.obj \
