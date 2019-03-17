@@ -7,6 +7,7 @@
 #endif // PUTTYNG
 #define APPDESC "SSH, Telnet and Rlogin client"
 
+#include "winhelp.rc2"
 #include "win_res.rc2"
 
 #ifndef NO_MANIFESTS
