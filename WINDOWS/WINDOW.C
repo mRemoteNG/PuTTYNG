@@ -220,6 +220,11 @@ static int compose_state = 0;
 
 static UINT wm_mousewheel = WM_MOUSEWHEEL;
 
+#ifdef PUTTYNG
+HWND hwnd_parent_main = NULL;
+HWND hwnd_last_active = NULL;
+#endif
+
 #define IS_HIGH_VARSEL(wch1, wch2) \
     ((wch1) == 0xDB40 && ((wch2) >= 0xDD00 && (wch2) <= 0xDDEF))
 #define IS_LOW_VARSEL(wch) \
@@ -480,6 +485,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     hinst = inst;
     hwnd = NULL;
+#ifdef PUTTYNG
+	term = NULL; // Make sure that term is initialized to NULL before the window is created so that we can check for it later
+#endif // PUTTYNG
     flags = FLAG_VERBOSE | FLAG_INTERACTIVE;
     cmdline_tooltype |= TOOLTYPE_HOST_ARG | TOOLTYPE_PORT_ARG;
 
@@ -2730,9 +2738,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 #ifdef PUTTYNG
 	    {
     		GUITHREADINFO thread_info;
-		thread_info.cbSize = sizeof(thread_info);
-		GetGUIThreadInfo(NULL, &thread_info);
-		hwnd_last_active = thread_info.hwndActive;
+			thread_info.cbSize = sizeof(thread_info);
+			GetGUIThreadInfo(NULL, &thread_info);
+			hwnd_last_active = thread_info.hwndActive;
 	    }
 #endif // PUTTYNG
 	}
