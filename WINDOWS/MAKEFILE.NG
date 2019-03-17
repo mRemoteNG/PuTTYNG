@@ -524,7 +524,7 @@ $(BUILDDIR)puttyng.exe: $(BUILDDIR)aqsync.obj $(BUILDDIR)be_all_s.obj \
  $(BUILDDIR)winstore.obj $(BUILDDIR)wintime.obj $(BUILDDIR)winucs.obj
  $(BUILDDIR)winutils.obj $(BUILDDIR)winx11.obj $(BUILDDIR)x11fwd.obj
 <<
-	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)putty.exe -map:$(BUILDDIR)putty.map -nologo -subsystem:windows$(SUBSYSVER) @link_putty
+	link $(LFLAGS) $(XLFLAGS) -out:$(BUILDDIR)puttyng.exe -map:$(BUILDDIR)putty.map -nologo -subsystem:windows$(SUBSYSVER) @link_putty
 
 $(BUILDDIR)puttygen.exe: $(BUILDDIR)conf.obj $(BUILDDIR)ecc.obj \
 		$(BUILDDIR)import.obj $(BUILDDIR)marshal.obj \
