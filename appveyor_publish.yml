@@ -31,3 +31,5 @@ after_build:
 artifacts:
 - path: WINDOWS\PuTTYNG.exe
   name: PuTTYNG.exe
+- path: WINDOWS\PuTTYNG.pdb
+  name: PuTTYNG.pdb
