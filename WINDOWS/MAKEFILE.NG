@@ -98,8 +98,8 @@
 MAKEFILE = MAKEFILE.NG
 
 # C compilation flags
-CFLAGS = /nologo /W3 /O1 -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ /D_WINDOWS /D_WIN32_WINDOWS=0x500 /DWINVER=0x500 /D_CRT_SECURE_NO_WARNINGS /D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE
-LFLAGS = /incremental:no /dynamicbase /nxcompat
+CFLAGS = /nologo /W3 /O1 -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ /Zi /Fd".\Debug" /D_WINDOWS /D_WIN32_WINDOWS=0x500 /DWINVER=0x500 /D_CRT_SECURE_NO_WARNINGS
+LFLAGS = /incremental:no /dynamicbase /nxcompat /PDB:PuTTYNG.pdb /DEBUG /MAP 
 RCFLAGS = -I..\./ -I..\charset/ -I..\windows/ -I..\unix/ -DWIN32 -D_WIN32 -DWINVER=0x0400 -DPUTTYNG
 
 CFLAGS = $(CFLAGS) /DHAS_GSSAPI /DPUTTYNG
