@@ -237,11 +237,17 @@ char *buildinfo(const char *newline)
 #else
     strbuf_catf(buf, ", emulating ");
 #endif
+	/* Most _MSC_VER values are defined here:
+	 * https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=vs-2017
+	 * VS 2019 isn't defined there yet, but it's easily found/confirmed.
+	 */
     strbuf_catf(buf, "Visual Studio", newline);
-#if _MSC_VER == 1900
+#if _MSC_VER == 1920
+	strbuf_catf(buf, " 2019 / MSVC++ 16.x");
+#elif _MSC_VER >= 1910 && _MSC_VER <= 1916
+	strbuf_catf(buf, " 2017 / MSVC++ 15.x");
+#elif _MSC_VER == 1900
     strbuf_catf(buf, " 2015 / MSVC++ 14.0");
-#elif _MSC_VER == 1912
-    strbuf_catf(buf, " 2017 / MSVC++ 14.12");
 #elif _MSC_VER == 1800
     strbuf_catf(buf, " 2013 / MSVC++ 12.0");
 #elif _MSC_VER == 1700
