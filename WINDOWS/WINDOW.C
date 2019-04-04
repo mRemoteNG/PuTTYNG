@@ -750,7 +750,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 #ifdef PUTTYNG
 	if (hwnd_parent != 0)
 	{
-		winmode &= ~(WS_POPUPWINDOW);
+		winmode &= ~(WS_POPUPWINDOW | WS_THICKFRAME);
 	}
 #endif // PUTTYNG
 	hwnd = CreateWindowExW(exwinmode, uappname, uappname,
@@ -762,7 +762,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	{
 	    SetParent(hwnd, (HWND)hwnd_parent); // Focus doesn't work correctly if this is passed into CreateWindow, so set it separately.
 	    hwnd_parent_main = GetAncestor((HWND)hwnd_parent, GA_ROOTOWNER); // the top level ancestor of hwnd_parent
-		SetWindowLong(hwnd, GWL_STYLE, 0);
+		SetWindowLong(hwnd, GWL_STYLE, winmode);
 	}
 #endif // PUTTYNG
         sfree(uappname);
