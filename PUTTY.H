@@ -727,6 +727,11 @@ extern const int be_default_protocol;
  */
 extern const char *const appname;
 
+#ifdef PUTTYNG
+int hwnd_parent;
+#define IsZoomed(hWnd) TRUE
+#endif // PUTTYNG
+
 /*
  * Mechanism for getting text strings such as usernames and passwords
  * from the front-end.
