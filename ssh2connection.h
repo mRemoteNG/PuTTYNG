@@ -7,8 +7,6 @@ struct outstanding_global_request;
 struct ssh2_connection_state {
     int crState;
 
-    Ssh *ssh;
-
     ssh_sharing_state *connshare;
     char *peer_verstring;
 
@@ -21,17 +19,17 @@ struct ssh2_connection_state {
 
     bool ssh_is_simple;
     bool persistent;
+    bool started;
 
     Conf *conf;
 
-    tree234 *channels;		       /* indexed by local id */
+    tree234 *channels;                 /* indexed by local id */
     bool all_channels_throttled;
 
     bool X11_fwd_enabled;
     tree234 *x11authtree;
 
     bool got_pty;
-    bool agent_fwd_enabled;
 
     tree234 *rportfwds;
     PortFwdManager *portfwdmgr;
@@ -41,6 +39,7 @@ struct ssh2_connection_state {
     int antispoof_ret;
 
     const SftpServerVtable *sftpserver_vt;
+    const SshServerConfig *ssc;
 
     /*
      * These store the list of global requests that we're waiting for

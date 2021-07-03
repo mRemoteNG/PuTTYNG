@@ -9,12 +9,18 @@
 
 #if !defined NO_SECURITY
 
-#define WINSECUR_GLOBAL
 #include "winsecur.h"
 
 /* Initialised once, then kept around to reuse forever */
 static PSID worldsid, networksid, usersid;
 
+DEF_WINDOWS_FUNCTION(OpenProcessToken);
+DEF_WINDOWS_FUNCTION(GetTokenInformation);
+DEF_WINDOWS_FUNCTION(InitializeSecurityDescriptor);
+DEF_WINDOWS_FUNCTION(SetSecurityDescriptorOwner);
+DEF_WINDOWS_FUNCTION(GetSecurityInfo);
+DEF_WINDOWS_FUNCTION(SetSecurityInfo);
+DEF_WINDOWS_FUNCTION(SetEntriesInAclA);
 
 bool got_advapi(void)
 {
@@ -92,7 +98,7 @@ PSID get_user_sid(void)
     return ret;
 }
 
-bool getsids(char **error)
+static bool getsids(char **error)
 {
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -140,7 +146,7 @@ bool getsids(char **error)
  cleanup:
     return ret;
 }
-  
+
 
 bool make_private_security_descriptor(DWORD permissions,
                                       PSECURITY_DESCRIPTOR *psd,
@@ -228,6 +234,9 @@ bool make_private_security_descriptor(DWORD permissions,
     return ret;
 }
 
+static bool acl_restricted = false;
+bool restricted_acl(void) { return acl_restricted; }
+
 static bool really_restrict_process_acl(char **error)
 {
     EXPLICIT_ACCESS ea[2];
@@ -236,14 +245,14 @@ static bool really_restrict_process_acl(char **error)
     PACL acl = NULL;
 
     static const DWORD nastyace=WRITE_DAC | WRITE_OWNER |
-	PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD |
-	PROCESS_DUP_HANDLE |
-	PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION |
-	PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE |
-	PROCESS_SUSPEND_RESUME;
+        PROCESS_CREATE_PROCESS | PROCESS_CREATE_THREAD |
+        PROCESS_DUP_HANDLE |
+        PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION |
+        PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE |
+        PROCESS_SUSPEND_RESUME;
 
     if (!getsids(error))
-	goto cleanup;
+        goto cleanup;
 
     memset(ea, 0, sizeof(ea));
 
@@ -264,7 +273,7 @@ static bool really_restrict_process_acl(char **error)
     acl_err = p_SetEntriesInAclA(2, ea, NULL, &acl);
 
     if (acl_err != ERROR_SUCCESS || acl == NULL) {
-	*error = dupprintf("unable to construct ACL: %s",
+        *error = dupprintf("unable to construct ACL: %s",
                            win_strerror(acl_err));
         goto cleanup;
     }
@@ -273,14 +282,14 @@ static bool really_restrict_process_acl(char **error)
         (GetCurrentProcess(), SE_KERNEL_OBJECT,
          OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
          usersid, NULL, acl, NULL)) {
-	*error = dupprintf("Unable to set process ACL: %s",
+        *error = dupprintf("Unable to set process ACL: %s",
                            win_strerror(GetLastError()));
-	goto cleanup;
+        goto cleanup;
     }
-		      
 
+    acl_restricted = true;
     ret=true;
-    
+
   cleanup:
     if (!ret) {
         if (acl) {

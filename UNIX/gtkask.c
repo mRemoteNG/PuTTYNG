@@ -19,6 +19,8 @@
 #include "gtkcompat.h"
 #include "gtkmisc.h"
 
+#include "putty.h"
+#include "ssh.h"
 #include "misc.h"
 
 #define N_DRAWING_AREAS 3
@@ -55,12 +57,49 @@ struct askpass_ctx {
     int nattempts;
 };
 
+static prng *keypress_prng = NULL;
+static void feed_keypress_prng(void *data, int size)
+{
+    put_data(keypress_prng, data, size);
+}
+void random_add_noise(NoiseSourceId source, const void *noise, int length)
+{
+    if (keypress_prng)
+        prng_add_entropy(keypress_prng, source, make_ptrlen(noise, length));
+}
+static void setup_keypress_prng(void)
+{
+    keypress_prng = prng_new(&ssh_sha256);
+    prng_seed_begin(keypress_prng);
+    noise_get_heavy(feed_keypress_prng);
+    prng_seed_finish(keypress_prng);
+}
+static void cleanup_keypress_prng(void)
+{
+    prng_free(keypress_prng);
+}
+static uint64_t keypress_prng_value(void)
+{
+    /*
+     * Don't actually put the passphrase keystrokes themselves into
+     * the PRNG; that doesn't seem like the course of wisdom when
+     * that's precisely what the information displayed on the screen
+     * is trying _not_ to be correlated to.
+     */
+    noise_ultralight(NOISE_SOURCE_KEY, 0);
+    uint8_t data[8];
+    prng_read(keypress_prng, data, 8);
+    return GET_64BIT_MSB_FIRST(data);
+}
+static int choose_new_area(int prev_area)
+{
+    int reduced = keypress_prng_value() % (N_DRAWING_AREAS - 1);
+    return (prev_area + 1 + reduced) % N_DRAWING_AREAS;
+}
+
 static void visually_acknowledge_keypress(struct askpass_ctx *ctx)
 {
-    int new_active;
-    new_active = rand() % (N_DRAWING_AREAS - 1);
-    if (new_active >= ctx->active_area)
-        new_active++;
+    int new_active = choose_new_area(ctx->active_area);
     ctx->drawingareas[ctx->active_area].state = NOT_CURRENT;
     gtk_widget_queue_draw(ctx->drawingareas[ctx->active_area].area);
     ctx->drawingareas[new_active].state = CURRENT;
@@ -107,6 +146,23 @@ static void add_text_to_passphrase(struct askpass_ctx *ctx, gchar *str)
     visually_acknowledge_keypress(ctx);
 }
 
+static void cancel_askpass(struct askpass_ctx *ctx, const char *msg)
+{
+    smemclr(ctx->passphrase, ctx->passsize);
+    ctx->passphrase = NULL;
+    ctx->error_message = dupstr(msg);
+    gtk_main_quit();
+}
+
+static gboolean askpass_dialog_closed(GtkWidget *widget, GdkEvent *event,
+                                      gpointer data)
+{
+    struct askpass_ctx *ctx = (struct askpass_ctx *)data;
+    cancel_askpass(ctx, "passphrase input cancelled");
+    /* Don't destroy dialog yet, so gtk_askpass_cleanup() can do its work */
+    return true;
+}
+
 static gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 {
     struct askpass_ctx *ctx = (struct askpass_ctx *)data;
@@ -116,10 +172,7 @@ static gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
         gtk_main_quit();
     } else if (event->keyval == GDK_KEY_Escape &&
                event->type == GDK_KEY_PRESS) {
-        smemclr(ctx->passphrase, ctx->passsize);
-        ctx->passphrase = NULL;
-        ctx->error_message = dupstr("passphrase input cancelled");
-        gtk_main_quit();
+        cancel_askpass(ctx, "passphrase input cancelled");
     } else {
 #if GTK_CHECK_VERSION(2,0,0)
         if (gtk_im_context_filter_keypress(ctx->imc, event))
@@ -317,7 +370,7 @@ static gboolean try_grab_keyboard(gpointer vctx)
      * And repaint the key-acknowledgment drawing areas as not greyed
      * out.
      */
-    ctx->active_area = rand() % N_DRAWING_AREAS;
+    ctx->active_area = keypress_prng_value() % N_DRAWING_AREAS;
     for (i = 0; i < N_DRAWING_AREAS; i++) {
         ctx->drawingareas[i].state =
             (i == ctx->active_area ? CURRENT : NOT_CURRENT);
@@ -341,10 +394,7 @@ static gboolean try_grab_keyboard(gpointer vctx)
      * to give the user time to release that key.
      */
     if (++ctx->nattempts >= 4) {
-        smemclr(ctx->passphrase, ctx->passsize);
-        ctx->passphrase = NULL;
-        ctx->error_message = dupstr("unable to grab keyboard after 5 seconds");
-        gtk_main_quit();
+        cancel_askpass(ctx, "unable to grab keyboard after 5 seconds");
     } else {
         g_timeout_add(1000/8, try_grab_keyboard, ctx);
     }
@@ -387,12 +437,21 @@ static const char *gtk_askpass_setup(struct askpass_ctx *ctx,
     ctx->dialog = our_dialog_new();
     gtk_window_set_title(GTK_WINDOW(ctx->dialog), window_title);
     gtk_window_set_position(GTK_WINDOW(ctx->dialog), GTK_WIN_POS_CENTER);
+    g_signal_connect(G_OBJECT(ctx->dialog), "delete-event",
+                              G_CALLBACK(askpass_dialog_closed), ctx);
     ctx->promptlabel = gtk_label_new(prompt_text);
     align_label_left(GTK_LABEL(ctx->promptlabel));
     gtk_widget_show(ctx->promptlabel);
     gtk_label_set_line_wrap(GTK_LABEL(ctx->promptlabel), true);
 #if GTK_CHECK_VERSION(3,0,0)
     gtk_label_set_width_chars(GTK_LABEL(ctx->promptlabel), 48);
+#endif
+    int margin = string_width("MM");
+#if GTK_CHECK_VERSION(3,12,0)
+    gtk_widget_set_margin_start(ctx->promptlabel, margin);
+    gtk_widget_set_margin_end(ctx->promptlabel, margin);
+#else
+    gtk_misc_set_padding(GTK_MISC(ctx->promptlabel), margin, 0);
 #endif
     our_dialog_add_to_content_area(GTK_WINDOW(ctx->dialog),
                                    ctx->promptlabel, true, true, 0);
@@ -530,7 +589,7 @@ const bool buildinfo_gtk_relevant = true;
 char *gtk_askpass_main(const char *display, const char *wintitle,
                        const char *prompt, bool *success)
 {
-    struct askpass_ctx actx, *ctx = &actx;
+    struct askpass_ctx ctx[1];
     const char *err;
 
     ctx->passphrase = NULL;
@@ -546,7 +605,9 @@ char *gtk_askpass_main(const char *display, const char *wintitle,
         *success = false;
         return dupprintf("%s", err);
     }
+    setup_keypress_prng();
     gtk_main();
+    cleanup_keypress_prng();
     gtk_askpass_cleanup(ctx);
 
     if (ctx->passphrase) {
@@ -582,7 +643,6 @@ int main(int argc, char **argv)
         success = false;
         ret = dupprintf("usage: %s <prompt text>", argv[0]);
     } else {
-        srand(time(NULL));
         ret = gtk_askpass_main(NULL, "Enter passphrase", argv[1], &success);
     }
 

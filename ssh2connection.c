@@ -12,7 +12,7 @@
 #include "sshcr.h"
 #include "ssh2connection.h"
 
-static void ssh2_connection_free(PacketProtocolLayer *); 
+static void ssh2_connection_free(PacketProtocolLayer *);
 static void ssh2_connection_process_queue(PacketProtocolLayer *);
 static bool ssh2_connection_get_specials(
     PacketProtocolLayer *ppl, add_special_fn_t add_special, void *ctx);
@@ -22,15 +22,16 @@ static bool ssh2_connection_want_user_input(PacketProtocolLayer *ppl);
 static void ssh2_connection_got_user_input(PacketProtocolLayer *ppl);
 static void ssh2_connection_reconfigure(PacketProtocolLayer *ppl, Conf *conf);
 
-static const struct PacketProtocolLayerVtable ssh2_connection_vtable = {
-    ssh2_connection_free,
-    ssh2_connection_process_queue,
-    ssh2_connection_get_specials,
-    ssh2_connection_special_cmd,
-    ssh2_connection_want_user_input,
-    ssh2_connection_got_user_input,
-    ssh2_connection_reconfigure,
-    "ssh-connection",
+static const PacketProtocolLayerVtable ssh2_connection_vtable = {
+    .free = ssh2_connection_free,
+    .process_queue = ssh2_connection_process_queue,
+    .get_specials = ssh2_connection_get_specials,
+    .special_cmd = ssh2_connection_special_cmd,
+    .want_user_input = ssh2_connection_want_user_input,
+    .got_user_input = ssh2_connection_got_user_input,
+    .reconfigure = ssh2_connection_reconfigure,
+    .queued_data_size = ssh_ppl_default_queued_data_size,
+    .name = "ssh-connection",
 };
 
 static SshChannel *ssh2_lportfwd_open(
@@ -61,34 +62,32 @@ static void ssh2_throttle_all_channels(ConnectionLayer *cl, bool throttled);
 static bool ssh2_ldisc_option(ConnectionLayer *cl, int option);
 static void ssh2_set_ldisc_option(ConnectionLayer *cl, int option, bool value);
 static void ssh2_enable_x_fwd(ConnectionLayer *cl);
-static void ssh2_enable_agent_fwd(ConnectionLayer *cl);
 static void ssh2_set_wants_user_input(ConnectionLayer *cl, bool wanted);
 
-static const struct ConnectionLayerVtable ssh2_connlayer_vtable = {
-    ssh2_rportfwd_alloc,
-    ssh2_rportfwd_remove,
-    ssh2_lportfwd_open,
-    ssh2_session_open,
-    ssh2_serverside_x11_open,
-    ssh2_serverside_agent_open,
-    ssh2_add_x11_display,
-    ssh2_add_sharing_x11_display,
-    ssh2_remove_sharing_x11_display,
-    ssh2_send_packet_from_downstream,
-    ssh2_alloc_sharing_channel,
-    ssh2_delete_sharing_channel,
-    ssh2_sharing_queue_global_request,
-    ssh2_sharing_no_more_downstreams,
-    ssh2_agent_forwarding_permitted,
-    ssh2_terminal_size,
-    ssh2_stdout_unthrottle,
-    ssh2_stdin_backlog,
-    ssh2_throttle_all_channels,
-    ssh2_ldisc_option,
-    ssh2_set_ldisc_option,
-    ssh2_enable_x_fwd,
-    ssh2_enable_agent_fwd,
-    ssh2_set_wants_user_input,
+static const ConnectionLayerVtable ssh2_connlayer_vtable = {
+    .rportfwd_alloc = ssh2_rportfwd_alloc,
+    .rportfwd_remove = ssh2_rportfwd_remove,
+    .lportfwd_open = ssh2_lportfwd_open,
+    .session_open = ssh2_session_open,
+    .serverside_x11_open = ssh2_serverside_x11_open,
+    .serverside_agent_open = ssh2_serverside_agent_open,
+    .add_x11_display = ssh2_add_x11_display,
+    .add_sharing_x11_display = ssh2_add_sharing_x11_display,
+    .remove_sharing_x11_display = ssh2_remove_sharing_x11_display,
+    .send_packet_from_downstream = ssh2_send_packet_from_downstream,
+    .alloc_sharing_channel = ssh2_alloc_sharing_channel,
+    .delete_sharing_channel = ssh2_delete_sharing_channel,
+    .sharing_queue_global_request = ssh2_sharing_queue_global_request,
+    .sharing_no_more_downstreams = ssh2_sharing_no_more_downstreams,
+    .agent_forwarding_permitted = ssh2_agent_forwarding_permitted,
+    .terminal_size = ssh2_terminal_size,
+    .stdout_unthrottle = ssh2_stdout_unthrottle,
+    .stdin_backlog = ssh2_stdin_backlog,
+    .throttle_all_channels = ssh2_throttle_all_channels,
+    .ldisc_option = ssh2_ldisc_option,
+    .set_ldisc_option = ssh2_set_ldisc_option,
+    .enable_x_fwd = ssh2_enable_x_fwd,
+    .set_wants_user_input = ssh2_set_wants_user_input,
 };
 
 static char *ssh2_channel_open_failure_error_text(PktIn *pktin)
@@ -131,28 +130,28 @@ static void ssh2channel_x11_sharing_handover(
     int protomajor, int protominor, const void *initial_data, int initial_len);
 static void ssh2channel_hint_channel_is_simple(SshChannel *c);
 
-static const struct SshChannelVtable ssh2channel_vtable = {
-    ssh2channel_write,
-    ssh2channel_write_eof,
-    ssh2channel_initiate_close,
-    ssh2channel_unthrottle,
-    ssh2channel_get_conf,
-    ssh2channel_window_override_removed,
-    ssh2channel_x11_sharing_handover,
-    ssh2channel_send_exit_status,
-    ssh2channel_send_exit_signal,
-    ssh2channel_send_exit_signal_numeric,
-    ssh2channel_request_x11_forwarding,
-    ssh2channel_request_agent_forwarding,
-    ssh2channel_request_pty,
-    ssh2channel_send_env_var,
-    ssh2channel_start_shell,
-    ssh2channel_start_command,
-    ssh2channel_start_subsystem,
-    ssh2channel_send_serial_break,
-    ssh2channel_send_signal,
-    ssh2channel_send_terminal_size_change,
-    ssh2channel_hint_channel_is_simple,
+static const SshChannelVtable ssh2channel_vtable = {
+    .write = ssh2channel_write,
+    .write_eof = ssh2channel_write_eof,
+    .initiate_close = ssh2channel_initiate_close,
+    .unthrottle = ssh2channel_unthrottle,
+    .get_conf = ssh2channel_get_conf,
+    .window_override_removed = ssh2channel_window_override_removed,
+    .x11_sharing_handover = ssh2channel_x11_sharing_handover,
+    .send_exit_status = ssh2channel_send_exit_status,
+    .send_exit_signal = ssh2channel_send_exit_signal,
+    .send_exit_signal_numeric = ssh2channel_send_exit_signal_numeric,
+    .request_x11_forwarding = ssh2channel_request_x11_forwarding,
+    .request_agent_forwarding = ssh2channel_request_agent_forwarding,
+    .request_pty = ssh2channel_request_pty,
+    .send_env_var = ssh2channel_send_env_var,
+    .start_shell = ssh2channel_start_shell,
+    .start_command = ssh2channel_start_command,
+    .start_subsystem = ssh2channel_start_subsystem,
+    .send_serial_break = ssh2channel_send_serial_break,
+    .send_signal = ssh2channel_send_signal,
+    .send_terminal_size_change = ssh2channel_send_terminal_size_change,
+    .hint_channel_is_simple = ssh2channel_hint_channel_is_simple,
 };
 
 static void ssh2_channel_check_close(struct ssh2_channel *c);
@@ -191,9 +190,9 @@ static int ssh2_channelcmp(void *av, void *bv)
     const struct ssh2_channel *a = (const struct ssh2_channel *) av;
     const struct ssh2_channel *b = (const struct ssh2_channel *) bv;
     if (a->localid < b->localid)
-	return -1;
+        return -1;
     if (a->localid > b->localid)
-	return +1;
+        return +1;
     return 0;
 }
 
@@ -202,9 +201,9 @@ static int ssh2_channelfind(void *av, void *bv)
     const unsigned *a = (const unsigned *) av;
     const struct ssh2_channel *b = (const struct ssh2_channel *) bv;
     if (*a < b->localid)
-	return -1;
+        return -1;
     if (*a > b->localid)
-	return +1;
+        return +1;
     return 0;
 }
 
@@ -310,6 +309,11 @@ static void ssh2_connection_free(PacketProtocolLayer *ppl)
     }
     portfwdmgr_free(s->portfwdmgr);
 
+    if (s->antispoof_prompt)
+        free_prompts(s->antispoof_prompt);
+
+    delete_callbacks_for_context(s);
+
     sfree(s);
 }
 
@@ -405,7 +409,7 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
                 put_uint32(pktout, c->remoteid);
                 put_uint32(pktout, chanopen_result.u.failure.reason_code);
                 put_stringz(pktout, chanopen_result.u.failure.wire_message);
-                put_stringz(pktout, "en");	/* language tag */
+                put_stringz(pktout, "en");      /* language tag */
                 pq_push(s->ppl.out_pq, pktout);
                 ppl_logevent("Rejected channel open: %s",
                              chanopen_result.u.failure.wire_message);
@@ -416,6 +420,8 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
                 ssh2_channel_init(c);
                 c->remwindow = winsize;
                 c->remmaxpkt = pktsize;
+                if (c->remmaxpkt > s->ppl.bpp->vt->packet_size_limit)
+                    c->remmaxpkt = s->ppl.bpp->vt->packet_size_limit;
                 if (c->chan->initial_fixed_window_size) {
                     c->locwindow = c->locmaxwin = c->remlocwin =
                         c->chan->initial_fixed_window_size;
@@ -474,7 +480,7 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
                                 localid);
                 return true;
             }
- 
+
             switch (pktin->type) {
               case SSH2_MSG_CHANNEL_OPEN_CONFIRMATION:
                 assert(c->halfopen);
@@ -482,6 +488,8 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
                 c->halfopen = false;
                 c->remwindow = get_uint32(pktin);
                 c->remmaxpkt = get_uint32(pktin);
+                if (c->remmaxpkt > s->ppl.bpp->vt->packet_size_limit)
+                    c->remmaxpkt = s->ppl.bpp->vt->packet_size_limit;
 
                 chan_open_confirmation(c->chan);
 
@@ -506,19 +514,18 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
                     ssh2_channel_try_eof(c); /* in case we had a pending EOF */
                 break;
 
-              case SSH2_MSG_CHANNEL_OPEN_FAILURE:
+              case SSH2_MSG_CHANNEL_OPEN_FAILURE: {
                 assert(c->halfopen);
 
-                {
-                    char *err = ssh2_channel_open_failure_error_text(pktin);
-                    chan_open_failed(c->chan, err);
-                    sfree(err);
-                }
+                char *err = ssh2_channel_open_failure_error_text(pktin);
+                chan_open_failed(c->chan, err);
+                sfree(err);
 
                 del234(s->channels, c);
                 ssh2_channel_free(c);
 
                 break;
+              }
 
               case SSH2_MSG_CHANNEL_DATA:
               case SSH2_MSG_CHANNEL_EXTENDED_DATA:
@@ -534,6 +541,17 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
                     bufsize = chan_send(
                         c->chan, ext_type == SSH2_EXTENDED_DATA_STDERR,
                         data.ptr, data.len);
+
+                    /*
+                     * The channel may have turned into a connection-
+                     * shared one as a result of that chan_send, e.g.
+                     * if the data we just provided completed the X11
+                     * auth phase and caused a callback to
+                     * x11_sharing_handover. If so, do nothing
+                     * further.
+                     */
+                    if (c->sharectx)
+                        break;
 
                     /*
                      * If it looks like the remote end hit the end of
@@ -730,7 +748,8 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
                         "Received %s for channel %d with no outstanding "
                         "channel request",
                         ssh2_pkt_type(s->ppl.bpp->pls->kctx,
-                                      s->ppl.bpp->pls->actx, pktin->type));
+                                      s->ppl.bpp->pls->actx, pktin->type),
+                        c->localid);
                     return true;
                 }
                 ocr->handler(c, pktin, ocr->ctx);
@@ -836,7 +855,7 @@ static bool ssh2_connection_filter_queue(struct ssh2_connection_state *s)
 }
 
 static void ssh2_handle_winadj_response(struct ssh2_channel *c,
-					PktIn *pktin, void *ctx)
+                                        PktIn *pktin, void *ctx)
 {
     unsigned *sizep = ctx;
 
@@ -856,7 +875,7 @@ static void ssh2_handle_winadj_response(struct ssh2_channel *c,
      * complete.
      */
     if (c->throttle_state == UNTHROTTLING)
-	c->throttle_state = UNTHROTTLED;
+        c->throttle_state = UNTHROTTLED;
 }
 
 static void ssh2_set_window(struct ssh2_channel *c, int newwin)
@@ -870,7 +889,7 @@ static void ssh2_set_window(struct ssh2_channel *c, int newwin)
      * CLOSE.
      */
     if (c->closes & (CLOSES_RCVD_EOF | CLOSES_SENT_CLOSE))
-	return;
+        return;
 
     /*
      * If the client-side Channel is in an initial setup phase with a
@@ -887,7 +906,7 @@ static void ssh2_set_window(struct ssh2_channel *c, int newwin)
      * window as well).
      */
     if ((s->ppl.remote_bugs & BUG_SSH2_MAXPKT) && newwin > OUR_V2_MAXPKT)
-	newwin = OUR_V2_MAXPKT;
+        newwin = OUR_V2_MAXPKT;
 
     /*
      * Only send a WINDOW_ADJUST if there's significantly more window
@@ -897,39 +916,39 @@ static void ssh2_set_window(struct ssh2_channel *c, int newwin)
      * "Significant" is arbitrarily defined as half the window size.
      */
     if (newwin / 2 >= c->locwindow) {
-	PktOut *pktout;
-	unsigned *up;
+        PktOut *pktout;
+        unsigned *up;
 
-	/*
-	 * In order to keep track of how much window the client
-	 * actually has available, we'd like it to acknowledge each
-	 * WINDOW_ADJUST.  We can't do that directly, so we accompany
-	 * it with a CHANNEL_REQUEST that has to be acknowledged.
-	 *
-	 * This is only necessary if we're opening the window wide.
-	 * If we're not, then throughput is being constrained by
-	 * something other than the maximum window size anyway.
-	 */
-	if (newwin == c->locmaxwin &&
+        /*
+         * In order to keep track of how much window the client
+         * actually has available, we'd like it to acknowledge each
+         * WINDOW_ADJUST.  We can't do that directly, so we accompany
+         * it with a CHANNEL_REQUEST that has to be acknowledged.
+         *
+         * This is only necessary if we're opening the window wide.
+         * If we're not, then throughput is being constrained by
+         * something other than the maximum window size anyway.
+         */
+        if (newwin == c->locmaxwin &&
             !(s->ppl.remote_bugs & BUG_CHOKES_ON_WINADJ)) {
-	    up = snew(unsigned);
-	    *up = newwin - c->locwindow;
-	    pktout = ssh2_chanreq_init(c, "winadj@putty.projects.tartarus.org",
-				       ssh2_handle_winadj_response, up);
-	    pq_push(s->ppl.out_pq, pktout);
+            up = snew(unsigned);
+            *up = newwin - c->locwindow;
+            pktout = ssh2_chanreq_init(c, "winadj@putty.projects.tartarus.org",
+                                       ssh2_handle_winadj_response, up);
+            pq_push(s->ppl.out_pq, pktout);
 
-	    if (c->throttle_state != UNTHROTTLED)
-		c->throttle_state = UNTHROTTLING;
-	} else {
-	    /* Pretend the WINDOW_ADJUST was acked immediately. */
-	    c->remlocwin = newwin;
-	    c->throttle_state = THROTTLED;
-	}
-	pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_CHANNEL_WINDOW_ADJUST);
-	put_uint32(pktout, c->remoteid);
-	put_uint32(pktout, newwin - c->locwindow);
-	pq_push(s->ppl.out_pq, pktout);
-	c->locwindow = newwin;
+            if (c->throttle_state != UNTHROTTLED)
+                c->throttle_state = UNTHROTTLING;
+        } else {
+            /* Pretend the WINDOW_ADJUST was acked immediately. */
+            c->remlocwin = newwin;
+            c->throttle_state = THROTTLED;
+        }
+        pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_CHANNEL_WINDOW_ADJUST);
+        put_uint32(pktout, c->remoteid);
+        put_uint32(pktout, newwin - c->locwindow);
+        pq_push(s->ppl.out_pq, pktout);
+        c->locwindow = newwin;
     }
 }
 
@@ -986,6 +1005,7 @@ static void ssh2_connection_process_queue(PacketProtocolLayer *ppl)
             s->want_user_input = false;
         }
         free_prompts(s->antispoof_prompt);
+        s->antispoof_prompt = NULL;
     }
 
     /*
@@ -1000,19 +1020,20 @@ static void ssh2_connection_process_queue(PacketProtocolLayer *ppl)
     s->mainchan = mainchan_new(
         &s->ppl, &s->cl, s->conf, s->term_width, s->term_height,
         s->ssh_is_simple, &s->mainchan_sc);
+    s->started = true;
 
     /*
      * Transfer data!
      */
 
     while (1) {
-	if ((pktin = ssh2_connection_pop(s)) != NULL) {
+        if ((pktin = ssh2_connection_pop(s)) != NULL) {
 
-	    /*
-	     * _All_ the connection-layer packets we expect to
-	     * receive are now handled by the dispatch table.
-	     * Anything that reaches here must be bogus.
-	     */
+            /*
+             * _All_ the connection-layer packets we expect to
+             * receive are now handled by the dispatch table.
+             * Anything that reaches here must be bogus.
+             */
 
             ssh_proto_error(s->ppl.ssh, "Received unexpected connection-layer "
                             "packet, type %d (%s)", pktin->type,
@@ -1020,8 +1041,8 @@ static void ssh2_connection_process_queue(PacketProtocolLayer *ppl)
                                           s->ppl.bpp->pls->actx,
                                           pktin->type));
             return;
-	}
-	crReturnV;
+        }
+        crReturnV;
     }
 
     crFinishV;
@@ -1043,22 +1064,22 @@ static void ssh2_channel_check_close(struct ssh2_channel *c)
 
     if (chan_want_close(c->chan, (c->closes & CLOSES_SENT_EOF),
                         (c->closes & CLOSES_RCVD_EOF)) &&
-	!c->chanreq_head &&
-	!(c->closes & CLOSES_SENT_CLOSE)) {
+        !c->chanreq_head &&
+        !(c->closes & CLOSES_SENT_CLOSE)) {
         /*
          * We have both sent and received EOF (or the channel is a
          * zombie), and we have no outstanding channel requests, which
          * means the channel is in final wind-up. But we haven't sent
          * CLOSE, so let's do so now.
          */
-	pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_CHANNEL_CLOSE);
-	put_uint32(pktout, c->remoteid);
-	pq_push(s->ppl.out_pq, pktout);
+        pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_CHANNEL_CLOSE);
+        put_uint32(pktout, c->remoteid);
+        pq_push(s->ppl.out_pq, pktout);
         c->closes |= CLOSES_SENT_EOF | CLOSES_SENT_CLOSE;
     }
 
     if (!((CLOSES_SENT_CLOSE | CLOSES_RCVD_CLOSE) & ~c->closes)) {
-	assert(c->chanreq_head == NULL);
+        assert(c->chanreq_head == NULL);
         /*
          * We have both sent and received CLOSE, which means we're
          * completely done with the channel.
@@ -1143,7 +1164,7 @@ static void ssh2_try_send_and_unthrottle(struct ssh2_channel *c)
 {
     int bufsize;
     if (c->closes & CLOSES_SENT_EOF)
-	return;                   /* don't send on channels we've EOFed */
+        return;                   /* don't send on channels we've EOFed */
     bufsize = ssh2_try_send(c);
     if (bufsize == 0) {
         c->throttled_by_backlog = false;
@@ -1227,6 +1248,15 @@ static void ssh2_check_termination(struct ssh2_connection_state *s)
 
     if (s->persistent)
         return;     /* persistent mode: never proactively terminate */
+
+    if (!s->started) {
+        /* At startup, we don't have any channels open because we
+         * haven't got round to opening the main one yet. In that
+         * situation, we don't want to terminate, even if a sharing
+         * connection opens and closes and causes a call to this
+         * function. */
+        return;
+    }
 
     if (count234(s->channels) == 0 &&
         !(s->connshare && share_ndownstreams(s->connshare) > 0)) {
@@ -1367,8 +1397,8 @@ static void ssh2channel_unthrottle(SshChannel *sc, size_t bufsize)
         ssh2_set_window(c, buflimit - bufsize);
 
     if (c->throttling_conn && bufsize <= buflimit) {
-	c->throttling_conn = false;
-	ssh_throttle_conn(s->ppl.ssh, -1);
+        c->throttling_conn = false;
+        ssh_throttle_conn(s->ppl.ssh, -1);
     }
 }
 
@@ -1595,7 +1625,7 @@ static void ssh2_connection_special_cmd(PacketProtocolLayer *ppl,
             pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_IGNORE);
             put_stringz(pktout, "");
             pq_push(s->ppl.out_pq, pktout);
-	}
+        }
     } else if (s->mainchan) {
         mainchan_special_cmd(s->mainchan, code, arg);
     }
@@ -1670,14 +1700,6 @@ static void ssh2_enable_x_fwd(ConnectionLayer *cl)
         container_of(cl, struct ssh2_connection_state, cl);
 
     s->X11_fwd_enabled = true;
-}
-
-static void ssh2_enable_agent_fwd(ConnectionLayer *cl)
-{
-    struct ssh2_connection_state *s =
-        container_of(cl, struct ssh2_connection_state, cl);
-
-    s->agent_fwd_enabled = true;
 }
 
 static void ssh2_set_wants_user_input(ConnectionLayer *cl, bool wanted)

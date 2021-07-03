@@ -5,10 +5,10 @@
 # include "uxconfig.h" /* Space to hide it from mkfiles.pl */
 #endif
 
-#include <stdio.h>		       /* for FILENAME_MAX */
-#include <stdint.h>		       /* C99 int types */
+#include <stdio.h>                     /* for FILENAME_MAX */
+#include <stdint.h>                    /* C99 int types */
 #ifndef NO_LIBDL
-#include <dlfcn.h>		       /* Dynamic library loading */
+#include <dlfcn.h>                     /* Dynamic library loading */
 #endif /*  NO_LIBDL */
 #include "charset.h"
 #include <sys/types.h>         /* for mode_t */
@@ -95,23 +95,11 @@ extern const struct BackendVtable pty_backend;
 /* Simple wraparound timer function */
 unsigned long getticks(void);
 #define GETTICKCOUNT getticks
-#define TICKSPERSEC    1000	       /* we choose to use milliseconds */
-#define CURSORBLINK     450	       /* no standard way to set this */
+#define TICKSPERSEC    1000            /* we choose to use milliseconds */
+#define CURSORBLINK     450            /* no standard way to set this */
 
 #define WCHAR wchar_t
 #define BYTE unsigned char
-
-/*
- * Unix-specific global flag
- *
- * FLAG_STDERR_TTY indicates that standard error might be a terminal and
- * might get its configuration munged, so anything trying to output plain
- * text (i.e. with newlines in it) will need to put it back into cooked
- * mode first.  Applications setting this flag should also call
- * stderr_tty_init() before messing with any terminal modes, and can call
- * premsg() before outputting text to stderr and postmsg() afterwards.
- */
-#define FLAG_STDERR_TTY 0x1000
 
 #define PLATFORM_CLIPBOARDS(X)                            \
     X(CLIP_PRIMARY, "X11 primary selection")              \
@@ -230,8 +218,8 @@ void logevent_dlg(eventlog_stuff *estuff, const char *string);
 int gtkdlg_askappend(Seat *seat, Filename *filename,
                      void (*callback)(void *ctx, int result), void *ctx);
 int gtk_seat_verify_ssh_host_key(
-    Seat *seat, const char *host, int port,
-    const char *keytype, char *keystr, char *fingerprint,
+    Seat *seat, const char *host, int port, const char *keytype,
+    char *keystr, const char *keydisp, char **fingerprints,
     void (*callback)(void *ctx, int result), void *ctx);
 int gtk_seat_confirm_weak_crypto_primitive(
     Seat *seat, const char *algtype, const char *algname,
@@ -257,9 +245,6 @@ GtkWidget *create_message_box(
     post_dialog_fn_t after, void *afterctx);
 #endif
 
-/* Things gtkwin.c needs from {ptermm,uxputty}.c */
-char *make_default_wintitle(char *hostname);
-
 /* gtkwin.c needs this special function in xkeysym.c */
 int keysym_to_unicode(int keysym);
 
@@ -267,7 +252,7 @@ int keysym_to_unicode(int keysym);
 char *x_get_default(const char *key);
 
 /* Things uxstore.c provides to gtkwin.c */
-void provide_xrm_string(char *string);
+void provide_xrm_string(const char *string, const char *progname);
 
 /* Function that {gtkapp,gtkmain}.c needs from ux{pterm,putty}.c. Does
  * early process setup that varies between applications (e.g.
@@ -305,7 +290,7 @@ extern char *pty_osx_envrestore_prefix;
 
 /* Things provided by uxcons.c */
 struct termios;
-void stderr_tty_init(void);
+void stderr_tty_init(void); /* call at startup if stderr might be a tty */
 void premsg(struct termios *);
 void postmsg(struct termios *);
 
@@ -341,7 +326,7 @@ void gtk_setup_config_box(
  * from the command line or config files is assumed to be encoded).
  */
 #define DEFAULT_CODEPAGE 0xFFFF
-#define CP_UTF8 CS_UTF8		       /* from libcharset */
+#define CP_UTF8 CS_UTF8                /* from libcharset */
 
 #define strnicmp strncasecmp
 #define stricmp strcasecmp
@@ -369,6 +354,7 @@ bool init_ucs(struct unicode_data *ucsdata, char *line_codepage,
  * Spare functions exported directly from uxnet.c.
  */
 void *sk_getxdmdata(Socket *sock, int *lenp);
+int sk_net_get_fd(Socket *sock);
 SockAddr *unix_sock_addr(const char *path);
 Socket *new_unix_listener(SockAddr *listenaddr, Plug *plug);
 
@@ -422,6 +408,16 @@ char *gtk_askpass_main(const char *display, const char *wintitle,
                        const char *prompt, bool *success);
 
 /*
+ * procnet.c.
+ */
+bool socket_peer_is_same_user(int fd);
+static inline bool sk_peer_trusted(Socket *sock)
+{
+    int fd = sk_net_get_fd(sock);
+    return fd >= 0 && socket_peer_is_same_user(fd);
+}
+
+/*
  * uxsftpserver.c.
  */
 extern const SftpServerVtable unix_live_sftpserver_vt;
@@ -444,5 +440,21 @@ static inline bool pollwrap_check_fd_rwx(pollwrapper *pw, int fd, int rwx)
 {
     return (pollwrap_get_fd_rwx(pw, fd) & rwx) != 0;
 }
+
+/*
+ * uxcliloop.c.
+ */
+typedef bool (*cliloop_pw_setup_t)(void *ctx, pollwrapper *pw);
+typedef void (*cliloop_pw_check_t)(void *ctx, pollwrapper *pw);
+typedef bool (*cliloop_continue_t)(void *ctx, bool found_any_fd,
+                                   bool ran_any_callback);
+
+void cli_main_loop(cliloop_pw_setup_t pw_setup,
+                   cliloop_pw_check_t pw_check,
+                   cliloop_continue_t cont, void *ctx);
+
+bool cliloop_no_pw_setup(void *ctx, pollwrapper *pw);
+void cliloop_no_pw_check(void *ctx, pollwrapper *pw);
+bool cliloop_always_continue(void *ctx, bool, bool);
 
 #endif /* PUTTY_UNIX_H */

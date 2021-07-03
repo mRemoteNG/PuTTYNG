@@ -18,11 +18,6 @@
 #define DH_MIN_SIZE 1024
 #define DH_MAX_SIZE 8192
 
-enum kexlist {
-    KEXLIST_KEX, KEXLIST_HOSTKEY, KEXLIST_CSCIPHER, KEXLIST_SCCIPHER,
-    KEXLIST_CSMAC, KEXLIST_SCMAC, KEXLIST_CSCOMP, KEXLIST_SCCOMP,
-    NKEXLIST
-};
 #define MAXKEXLIST 16
 struct kexinit_algorithm {
     const char *name;
@@ -33,6 +28,7 @@ struct kexinit_algorithm {
         } kex;
         struct {
             const ssh_keyalg *hostkey;
+            unsigned hkflags;
             bool warn;
         } hk;
         struct {
@@ -52,10 +48,13 @@ struct kexinit_algorithm {
 
 #define HOSTKEY_ALGORITHMS(X)                   \
     X(HK_ED25519, ssh_ecdsa_ed25519)            \
+    X(HK_ED448, ssh_ecdsa_ed448)                \
     X(HK_ECDSA, ssh_ecdsa_nistp256)             \
     X(HK_ECDSA, ssh_ecdsa_nistp384)             \
     X(HK_ECDSA, ssh_ecdsa_nistp521)             \
     X(HK_DSA, ssh_dss)                          \
+    X(HK_RSA, ssh_rsa_sha512)                   \
+    X(HK_RSA, ssh_rsa_sha256)                   \
     X(HK_RSA, ssh_rsa)                          \
     /* end of list */
 #define COUNT_HOSTKEY_ALGORITHM(type, alg) +1
@@ -139,6 +138,8 @@ struct ssh2_transport_state {
 
     struct DataTransferStats *stats;
 
+    const SshServerConfig *ssc;
+
     char *client_greeting, *server_greeting;
 
     bool kex_in_progress;
@@ -170,18 +171,21 @@ struct ssh2_transport_state {
     strbuf *outgoing_kexinit, *incoming_kexinit;
     strbuf *client_kexinit, *server_kexinit; /* aliases to the above */
     int kex_init_value, kex_reply_value;
-    transport_direction in, out;
+    transport_direction in, out, *cstrans, *sctrans;
     ptrlen hostkeydata, sigdata;
     strbuf *hostkeyblob;
-    char *keystr, *fingerprint;
+    char *keystr;
     ssh_key *hkey;                     /* actual host key */
+    unsigned hkflags;                  /* signing flags, used in server */
     RSAKey *rsa_kex_key;             /* for RSA kex */
+    bool rsa_kex_key_needs_freeing;
     ecdh_key *ecdh_key;                     /* for ECDH kex */
     unsigned char exchange_hash[MAX_HASH_LEN];
     bool can_gssapi_keyex;
     bool need_gss_transient_hostkey;
     bool warned_about_no_gss_transient_hostkey;
     bool got_session_id;
+    bool can_send_ext_info, post_newkeys_ext_info;
     int dlgret;
     bool guessok;
     bool ignorepkt;

@@ -22,11 +22,11 @@
 #ifndef NO_GSSAPI
 #include "sshgssc.h"
 #include "sshgss.h"
-#define MIN_CTXT_LIFETIME 5	/* Avoid rekey with short lifetime (seconds) */
-#define GSS_KEX_CAPABLE	(1<<0)	/* Can do GSS KEX */
+#define MIN_CTXT_LIFETIME 5     /* Avoid rekey with short lifetime (seconds) */
+#define GSS_KEX_CAPABLE (1<<0)  /* Can do GSS KEX */
 #define GSS_CRED_UPDATED (1<<1) /* Cred updated since previous delegation */
-#define GSS_CTXT_EXPIRES (1<<2)	/* Context expires before next timer */
-#define GSS_CTXT_MAYFAIL (1<<3)	/* Context may expire during handshake */
+#define GSS_CTXT_EXPIRES (1<<2) /* Context expires before next timer */
+#define GSS_CTXT_MAYFAIL (1<<3) /* Context may expire during handshake */
 #endif
 
 struct Ssh {
@@ -50,7 +50,9 @@ struct Ssh {
     ssh_sharing_state *connshare;
     bool attempting_connshare;
 
+#ifndef NO_GSSAPI
     struct ssh_connection_shared_gss_state gss_state;
+#endif
 
     char *savedhost;
     int savedport;
@@ -130,6 +132,8 @@ struct Ssh {
     bool session_started;
 
     Pinger *pinger;
+
+    char *deferred_abort_message;
 
     bool need_random_unref;
 };
@@ -236,7 +240,7 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
 #endif
 
             connection_layer = ssh2_connection_new(
-                ssh, ssh->connshare, is_simple, ssh->conf, 
+                ssh, ssh->connshare, is_simple, ssh->conf,
                 ssh_verstring_get_remote(old_bpp), &ssh->cl);
             ssh_connect_ppl(ssh, connection_layer);
 
@@ -249,13 +253,22 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
                 userauth_layer = ssh2_userauth_new(
                     connection_layer, ssh->savedhost, ssh->fullhostname,
                     conf_get_filename(ssh->conf, CONF_keyfile),
+                    conf_get_bool(ssh->conf, CONF_ssh_show_banner),
                     conf_get_bool(ssh->conf, CONF_tryagent), username,
                     conf_get_bool(ssh->conf, CONF_change_username),
                     conf_get_bool(ssh->conf, CONF_try_ki_auth),
+#ifndef NO_GSSAPI
                     conf_get_bool(ssh->conf, CONF_try_gssapi_auth),
                     conf_get_bool(ssh->conf, CONF_try_gssapi_kex),
                     conf_get_bool(ssh->conf, CONF_gssapifwd),
-                    &ssh->gss_state);
+                    &ssh->gss_state
+#else
+                    false,
+                    false,
+                    false,
+                    NULL
+#endif
+                    );
                 ssh_connect_ppl(ssh, userauth_layer);
                 transport_child_layer = userauth_layer;
 
@@ -267,8 +280,12 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
                 ssh->fullhostname,
                 ssh_verstring_get_local(old_bpp),
                 ssh_verstring_get_remote(old_bpp),
+#ifndef NO_GSSAPI
                 &ssh->gss_state,
-                &ssh->stats, transport_child_layer, false);
+#else
+                NULL,
+#endif
+                &ssh->stats, transport_child_layer, NULL);
             ssh_connect_ppl(ssh, ssh->base_layer);
 
             if (userauth_layer)
@@ -294,8 +311,8 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
         ssh_connect_bpp(ssh);
 
         connection_layer = ssh2_connection_new(
-            ssh, NULL, false, ssh->conf, ssh_verstring_get_remote(old_bpp),
-            &ssh->cl);
+            ssh, ssh->connshare, false, ssh->conf,
+            ssh_verstring_get_remote(old_bpp), &ssh->cl);
         ssh_connect_ppl(ssh, connection_layer);
         ssh->base_layer = connection_layer;
     }
@@ -440,7 +457,8 @@ static void ssh_initiate_connection_close(Ssh *ssh)
     va_list ap;                                 \
     va_start(ap, fmt);                          \
     msg = dupvprintf(fmt, ap);                  \
-    va_end(ap);
+    va_end(ap);                                 \
+    ((void)0) /* eat trailing semicolon */
 
 void ssh_remote_error(Ssh *ssh, const char *fmt, ...)
 {
@@ -540,8 +558,26 @@ void ssh_user_close(Ssh *ssh, const char *fmt, ...)
     }
 }
 
-static void ssh_socket_log(Plug *plug, int type, SockAddr *addr, int port,
-                           const char *error_msg, int error_code)
+static void ssh_deferred_abort_callback(void *vctx)
+{
+    Ssh *ssh = (Ssh *)vctx;
+    char *msg = ssh->deferred_abort_message;
+    ssh->deferred_abort_message = NULL;
+    ssh_sw_abort(ssh, "%s", msg);
+    sfree(msg);
+}
+
+void ssh_sw_abort_deferred(Ssh *ssh, const char *fmt, ...)
+{
+    if (!ssh->deferred_abort_message) {
+        GET_FORMATTED_MSG;
+        ssh->deferred_abort_message = msg;
+        queue_toplevel_callback(ssh_deferred_abort_callback, ssh);
+    }
+}
+
+static void ssh_socket_log(Plug *plug, PlugLogType type, SockAddr *addr,
+                           int port, const char *error_msg, int error_code)
 {
     Ssh *ssh = container_of(plug, Ssh, plug);
 
@@ -561,11 +597,11 @@ static void ssh_socket_log(Plug *plug, int type, SockAddr *addr, int port,
 }
 
 static void ssh_closing(Plug *plug, const char *error_msg, int error_code,
-			bool calling_back)
+                        bool calling_back)
 {
     Ssh *ssh = container_of(plug, Ssh, plug);
     if (error_msg) {
-        ssh_remote_error(ssh, "Network error: %s", error_msg);
+        ssh_remote_error(ssh, "%s", error_msg);
     } else if (ssh->bpp) {
         ssh->bpp->input_eof = true;
         queue_idempotent_callback(&ssh->bpp->ic_in_raw);
@@ -578,8 +614,8 @@ static void ssh_receive(Plug *plug, int urgent, const char *data, size_t len)
 
     /* Log raw data, if we're in that mode. */
     if (ssh->logctx)
-	log_packet(ssh->logctx, PKT_INCOMING, -1, NULL, data, len,
-		   0, NULL, NULL, 0, NULL);
+        log_packet(ssh->logctx, PKT_INCOMING, -1, NULL, data, len,
+                   0, NULL, NULL, 0, NULL);
 
     bufchain_add(&ssh->in_raw, data, len);
     if (!ssh->logically_frozen && ssh->bpp)
@@ -598,7 +634,7 @@ static void ssh_sent(Plug *plug, size_t bufsize)
      * some more data off its bufchain.
      */
     if (bufsize < SSH_MAX_BACKLOG) {
-	ssh_throttle_all(ssh, false, bufsize);
+        ssh_throttle_all(ssh, false, bufsize);
         queue_idempotent_callback(&ssh->ic_out_raw);
     }
 }
@@ -612,31 +648,31 @@ static void ssh_hostport_setup(const char *host, int port, Conf *conf,
         *loghost_ret = loghost;
 
     if (*loghost) {
-	char *tmphost;
+        char *tmphost;
         char *colon;
 
         tmphost = dupstr(loghost);
-	*savedport = 22;	       /* default ssh port */
+        *savedport = 22;               /* default ssh port */
 
-	/*
-	 * A colon suffix on the hostname string also lets us affect
-	 * savedport. (Unless there are multiple colons, in which case
-	 * we assume this is an unbracketed IPv6 literal.)
-	 */
-	colon = host_strrchr(tmphost, ':');
-	if (colon && colon == host_strchr(tmphost, ':')) {
-	    *colon++ = '\0';
-	    if (*colon)
-		*savedport = atoi(colon);
-	}
+        /*
+         * A colon suffix on the hostname string also lets us affect
+         * savedport. (Unless there are multiple colons, in which case
+         * we assume this is an unbracketed IPv6 literal.)
+         */
+        colon = host_strrchr(tmphost, ':');
+        if (colon && colon == host_strchr(tmphost, ':')) {
+            *colon++ = '\0';
+            if (*colon)
+                *savedport = atoi(colon);
+        }
 
         *savedhost = host_strduptrim(tmphost);
         sfree(tmphost);
     } else {
-	*savedhost = host_strduptrim(host);
-	if (port < 0)
-	    port = 22;		       /* default ssh port */
-	*savedport = port;
+        *savedhost = host_strduptrim(host);
+        if (port < 0)
+            port = 22;                 /* default ssh port */
+        *savedport = port;
     }
 }
 
@@ -655,12 +691,24 @@ static bool ssh_test_for_upstream(const char *host, int port, Conf *conf)
     return ret;
 }
 
+static char *ssh_close_warn_text(Backend *be)
+{
+    Ssh *ssh = container_of(be, Ssh, backend);
+    if (!ssh->connshare)
+        return NULL;
+    int ndowns = share_ndownstreams(ssh->connshare);
+    if (ndowns == 0)
+        return NULL;
+    char *msg = dupprintf("This will also close %d downstream connection%s.",
+                          ndowns, ndowns==1 ? "" : "s");
+    return msg;
+}
+
 static const PlugVtable Ssh_plugvt = {
-    ssh_socket_log,
-    ssh_closing,
-    ssh_receive,
-    ssh_sent,
-    NULL
+    .log = ssh_socket_log,
+    .closing = ssh_closing,
+    .receive = ssh_receive,
+    .sent = ssh_sent,
 };
 
 /*
@@ -669,7 +717,7 @@ static const PlugVtable Ssh_plugvt = {
  * Also places the canonical host name into `realhost'. It must be
  * freed by the caller.
  */
-static const char *connect_to_host(
+static char *connect_to_host(
     Ssh *ssh, const char *host, int port, char **realhost,
     bool nodelay, bool keepalive)
 {
@@ -708,7 +756,7 @@ static const char *connect_to_host(
         ssh->fullhostname = NULL;
         *realhost = dupstr(host);      /* best we can do */
 
-        if ((flags & FLAG_VERBOSE) || (flags & FLAG_INTERACTIVE)) {
+        if (seat_verbose(ssh->seat) || seat_interactive(ssh->seat)) {
             /* In an interactive session, or in verbose mode, announce
              * in the console window that we're a sharing downstream,
              * to avoid confusing users as to why this session doesn't
@@ -730,7 +778,7 @@ static const char *connect_to_host(
                            ssh->logctx, "SSH connection");
         if ((err = sk_addr_error(addr)) != NULL) {
             sk_addr_free(addr);
-            return err;
+            return dupstr(err);
         }
         ssh->fullhostname = dupstr(*realhost);   /* save in case of GSSAPI */
 
@@ -740,7 +788,7 @@ static const char *connect_to_host(
         if ((err = sk_socket_error(ssh->s)) != NULL) {
             ssh->s = NULL;
             seat_notify_remote_exit(ssh->seat);
-            return err;
+            return dupstr(err);
         }
     }
 
@@ -751,11 +799,11 @@ static const char *connect_to_host(
     sshprot = conf_get_int(ssh->conf, CONF_sshprot);
     assert(sshprot == 0 || sshprot == 3);
     if (sshprot == 0)
-	/* SSH-1 only */
-	ssh->version = 1;
+        /* SSH-1 only */
+        ssh->version = 1;
     if (sshprot == 3 || ssh->bare_connection) {
-	/* SSH-2 only */
-	ssh->version = 2;
+        /* SSH-2 only */
+        ssh->version = 2;
     }
 
     /*
@@ -775,8 +823,8 @@ static const char *connect_to_host(
      * loghost, if configured, overrides realhost.
      */
     if (*loghost) {
-	sfree(*realhost);
-	*realhost = dupstr(loghost);
+        sfree(*realhost);
+        *realhost = dupstr(loghost);
     }
 
     return NULL;
@@ -812,7 +860,7 @@ void ssh_throttle_conn(Ssh *ssh, int adjust)
 static void ssh_throttle_all(Ssh *ssh, bool enable, size_t bufsize)
 {
     if (enable == ssh->throttled_all)
-	return;
+        return;
     ssh->throttled_all = enable;
     ssh->overall_bufsize = bufsize;
 
@@ -825,17 +873,28 @@ static void ssh_cache_conf_values(Ssh *ssh)
     ssh->pls.omit_data = conf_get_bool(ssh->conf, CONF_logomitdata);
 }
 
+bool ssh_is_bare(Ssh *ssh)
+{
+    return ssh->backend.vt->protocol == PROT_SSHCONN;
+}
+
+/* Dummy connlayer must provide ssh_sharing_no_more_downstreams,
+ * because it might be called early due to plink -shareexists */
+static void dummy_sharing_no_more_downstreams(ConnectionLayer *cl) {}
+static const ConnectionLayerVtable dummy_connlayer_vtable = {
+    .sharing_no_more_downstreams = dummy_sharing_no_more_downstreams,
+};
+
 /*
  * Called to set up the connection.
  *
  * Returns an error message, or NULL on success.
  */
-static const char *ssh_init(Seat *seat, Backend **backend_handle,
-                            LogContext *logctx, Conf *conf,
-                            const char *host, int port, char **realhost,
-			    bool nodelay, bool keepalive)
+static char *ssh_init(const BackendVtable *vt, Seat *seat,
+                      Backend **backend_handle, LogContext *logctx,
+                      Conf *conf, const char *host, int port,
+                      char **realhost, bool nodelay, bool keepalive)
 {
-    const char *p;
     Ssh *ssh;
 
     ssh = snew(Ssh);
@@ -852,24 +911,31 @@ static const char *ssh_init(Seat *seat, Backend **backend_handle,
     ssh->ic_out_raw.fn = ssh_bpp_output_raw_data_callback;
     ssh->ic_out_raw.ctx = ssh;
 
-    ssh->backend.vt = &ssh_backend;
+    ssh->term_width = conf_get_int(ssh->conf, CONF_width);
+    ssh->term_height = conf_get_int(ssh->conf, CONF_height);
+
+    ssh->backend.vt = vt;
     *backend_handle = &ssh->backend;
 
+    ssh->bare_connection = (vt->protocol == PROT_SSHCONN);
+
     ssh->seat = seat;
+    ssh->cl_dummy.vt = &dummy_connlayer_vtable;
     ssh->cl_dummy.logctx = ssh->logctx = logctx;
 
     random_ref(); /* do this now - may be needed by sharing setup code */
     ssh->need_random_unref = true;
 
-    p = connect_to_host(ssh, host, port, realhost, nodelay, keepalive);
-    if (p != NULL) {
+    char *conn_err = connect_to_host(
+        ssh, host, port, realhost, nodelay, keepalive);
+    if (conn_err) {
         /* Call random_unref now instead of waiting until the caller
          * frees this useless Ssh object, in case the caller is
          * impatient and just exits without bothering, in which case
          * the random seed won't be re-saved. */
         ssh->need_random_unref = false;
         random_unref();
-	return p;
+        return conn_err;
     }
 
     return NULL;
@@ -891,14 +957,16 @@ static void ssh_free(Backend *be)
 
 #ifndef NO_GSSAPI
     if (ssh->gss_state.srv_name)
-        ssh->gss_state.lib->release_name( 
+        ssh->gss_state.lib->release_name(
             ssh->gss_state.lib, &ssh->gss_state.srv_name);
     if (ssh->gss_state.ctx != NULL)
         ssh->gss_state.lib->release_cred(
             ssh->gss_state.lib, &ssh->gss_state.ctx);
     if (ssh->gss_state.libs)
-	ssh_gss_cleanup(ssh->gss_state.libs);
+        ssh_gss_cleanup(ssh->gss_state.libs);
 #endif
+
+    sfree(ssh->deferred_abort_message);
 
     delete_callbacks_for_context(ssh); /* likely to catch ic_out_raw */
 
@@ -934,7 +1002,7 @@ static size_t ssh_send(Backend *be, const char *buf, size_t len)
     Ssh *ssh = container_of(be, Ssh, backend);
 
     if (ssh == NULL || ssh->s == NULL)
-	return 0;
+        return 0;
 
     bufchain_add(&ssh->user_input, buf, len);
     if (ssh->base_layer)
@@ -952,18 +1020,19 @@ static size_t ssh_sendbuffer(Backend *be)
     size_t backlog;
 
     if (!ssh || !ssh->s || !ssh->cl)
-	return 0;
+        return 0;
 
     backlog = ssh_stdin_backlog(ssh->cl);
 
-    /* FIXME: also include sizes of pqs */
+    if (ssh->base_layer)
+        backlog += ssh_ppl_queued_data_size(ssh->base_layer);
 
     /*
      * If the SSH socket itself has backed up, add the total backup
      * size on that to any individual buffer on the stdin channel.
      */
     if (ssh->throttled_all)
-	backlog += ssh->overall_bufsize;
+        backlog += ssh->overall_bufsize;
 
     return backlog;
 }
@@ -1012,21 +1081,21 @@ static const SessionSpecial *ssh_get_specials(Backend *be)
      * and amalgamate the list into one combined one.
      */
 
-    struct ssh_add_special_ctx ctx;
+    struct ssh_add_special_ctx ctx[1];
 
-    ctx.specials = NULL;
-    ctx.nspecials = ctx.specials_size = 0;
+    ctx->specials = NULL;
+    ctx->nspecials = ctx->specials_size = 0;
 
     if (ssh->base_layer)
-        ssh_ppl_get_specials(ssh->base_layer, ssh_add_special, &ctx);
+        ssh_ppl_get_specials(ssh->base_layer, ssh_add_special, ctx);
 
-    if (ctx.specials) {
+    if (ctx->specials) {
         /* If the list is non-empty, terminate it with a SS_EXITMENU. */
-        ssh_add_special(&ctx, NULL, SS_EXITMENU, 0);
+        ssh_add_special(ctx, NULL, SS_EXITMENU, 0);
     }
 
     sfree(ssh->specials);
-    ssh->specials = ctx.specials;
+    ssh->specials = ctx->specials;
     return ssh->specials;
 }
 
@@ -1070,7 +1139,7 @@ void ssh_ldisc_update(Ssh *ssh)
     /* Called when the connection layer wants to propagate an update
      * to the line discipline options */
     if (ssh->ldisc)
-	ldisc_echoedit_update(ssh->ldisc);
+        ldisc_echoedit_update(ssh->ldisc);
 }
 
 static bool ssh_ldisc(Backend *be, int option)
@@ -1108,11 +1177,11 @@ static int ssh_cfg_info(Backend *be)
 {
     Ssh *ssh = container_of(be, Ssh, backend);
     if (ssh->version == 0)
-	return 0; /* don't know yet */
+        return 0; /* don't know yet */
     else if (ssh->bare_connection)
-	return -1;
+        return -1;
     else
-	return ssh->version;
+        return ssh->version;
 }
 
 /*
@@ -1131,24 +1200,49 @@ void ssh_got_fallback_cmd(Ssh *ssh)
     ssh->fallback_cmd = true;
 }
 
-const struct BackendVtable ssh_backend = {
-    ssh_init,
-    ssh_free,
-    ssh_reconfig,
-    ssh_send,
-    ssh_sendbuffer,
-    ssh_size,
-    ssh_special,
-    ssh_get_specials,
-    ssh_connected,
-    ssh_return_exitcode,
-    ssh_sendok,
-    ssh_ldisc,
-    ssh_provide_ldisc,
-    ssh_unthrottle,
-    ssh_cfg_info,
-    ssh_test_for_upstream,
-    "ssh",
-    PROT_SSH,
-    22
+const BackendVtable ssh_backend = {
+    .init = ssh_init,
+    .free = ssh_free,
+    .reconfig = ssh_reconfig,
+    .send = ssh_send,
+    .sendbuffer = ssh_sendbuffer,
+    .size = ssh_size,
+    .special = ssh_special,
+    .get_specials = ssh_get_specials,
+    .connected = ssh_connected,
+    .exitcode = ssh_return_exitcode,
+    .sendok = ssh_sendok,
+    .ldisc_option_state = ssh_ldisc,
+    .provide_ldisc = ssh_provide_ldisc,
+    .unthrottle = ssh_unthrottle,
+    .cfg_info = ssh_cfg_info,
+    .test_for_upstream = ssh_test_for_upstream,
+    .close_warn_text = ssh_close_warn_text,
+    .id = "ssh",
+    .displayname = "SSH",
+    .protocol = PROT_SSH,
+    .default_port = 22,
+};
+
+const BackendVtable sshconn_backend = {
+    .init = ssh_init,
+    .free = ssh_free,
+    .reconfig = ssh_reconfig,
+    .send = ssh_send,
+    .sendbuffer = ssh_sendbuffer,
+    .size = ssh_size,
+    .special = ssh_special,
+    .get_specials = ssh_get_specials,
+    .connected = ssh_connected,
+    .exitcode = ssh_return_exitcode,
+    .sendok = ssh_sendok,
+    .ldisc_option_state = ssh_ldisc,
+    .provide_ldisc = ssh_provide_ldisc,
+    .unthrottle = ssh_unthrottle,
+    .cfg_info = ssh_cfg_info,
+    .test_for_upstream = ssh_test_for_upstream,
+    .close_warn_text = ssh_close_warn_text,
+    .id = "ssh-connection",
+    .displayname = "Bare ssh-connection",
+    .protocol = PROT_SSHCONN,
 };

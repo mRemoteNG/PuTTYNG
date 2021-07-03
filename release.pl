@@ -10,7 +10,7 @@ use File::Find;
 use File::Temp qw/tempdir/;
 use LWP::UserAgent;
 
-my $version = undef; 
+my $version = undef;
 my $setver = 0;
 my $upload = 0;
 my $precheck = 0;
@@ -24,7 +24,7 @@ GetOptions("version=s" => \$version,
            "no-ftp" => \$skip_ftp)
     or &usage();
 
-# --set-version: construct a local commit which updates the version
+# --setver: construct a local commit which updates the version
 # number, and the command-line help transcripts in the docs.
 if ($setver) {
     defined $version or die "use --version";
@@ -45,8 +45,6 @@ if ($setver) {
     $plink_transcript =~ s/^Unidentified build/Release ${version}/m or die;
     $plink_transcript =~ s/^/\\c /mg;
     &transform("LATEST.VER", sub { s/^\d+\.\d+$/$version/ });
-    &transform("windows/putty.iss", sub {
-        s/^(AppVerName=PuTTY version |VersionInfoTextVersion=Release |AppVersion=|VersionInfoVersion=)\d+\.\d+/$1$version/ });
     our $transforming = 0;
     &transform("doc/pscp.but", sub {
         if (/^\\c.*>pscp$/) { $transforming = 1; $_ .= $pscp_transcript; }
@@ -100,7 +98,7 @@ if ($upload) {
                        }
                    } elsif (m!^putty/(.*sum)s!) {
                        print $pipe "echo checking ${1}s\n";
-                       print $pipe "$1 -c ${1}s\n";
+                       print $pipe "grep -vF ' (installer version)' ${1}s | grep . | $1 -c\n";
                    }
                }, no_chdir => 1}, "putty");
         print $pipe "echo all verified ok\n";

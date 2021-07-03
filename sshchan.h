@@ -6,6 +6,8 @@
 #ifndef PUTTY_SSHCHAN_H
 #define PUTTY_SSHCHAN_H
 
+typedef struct ChannelVtable ChannelVtable;
+
 struct ChannelVtable {
     void (*free)(Channel *);
 
@@ -169,6 +171,8 @@ Channel *zombiechan_new(void);
  * implementation to talk back to.
  */
 
+typedef struct SshChannelVtable SshChannelVtable;
+
 struct SshChannelVtable {
     size_t (*write)(SshChannel *c, bool is_stderr, const void *, size_t);
     void (*write_eof)(SshChannel *c);
@@ -250,8 +254,8 @@ static inline void sshfwd_x11_sharing_handover(
     SshChannel *c, ssh_sharing_connstate *cs, share_channel *sch,
     const char *addr, int port, int endian, int maj, int min,
     const void *idata, int ilen)
-{ return c->vt->x11_sharing_handover(c, cs, sch, addr, port, endian,
-                                     maj, min, idata, ilen); }
+{ c->vt->x11_sharing_handover(c, cs, sch, addr, port, endian,
+                              maj, min, idata, ilen); }
 static inline void sshfwd_send_exit_status(SshChannel *c, int status)
 { c->vt->send_exit_status(c, status); }
 static inline void sshfwd_send_exit_signal(

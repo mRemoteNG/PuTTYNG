@@ -9,6 +9,8 @@
 #include "sshbpp.h"
 #include "sshppl.h"
 #include "sshcr.h"
+#include "sshserver.h"
+#include "sshkeygen.h"
 #include "storage.h"
 #include "ssh2transport.h"
 #include "mpint.h"
@@ -30,12 +32,8 @@ static strbuf *finalise_and_sign_exhash(struct ssh2_transport_state *s)
     sb = strbuf_new();
     ssh_key_sign(
         s->hkey, make_ptrlen(s->exchange_hash, s->kex_alg->hash->hlen),
-        0, BinarySink_UPCAST(sb));
+        s->hkflags, BinarySink_UPCAST(sb));
     return sb;
-}
-
-static void no_progress(void *param, int action, int phase, int iprogress)
-{
 }
 
 void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
@@ -56,7 +54,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         assert(s->hkey);
     }
 
-    s->hostkeyblob->len = 0;
+    strbuf_clear(s->hostkeyblob);
     ssh_key_public_blob(s->hkey, BinarySink_UPCAST(s->hostkeyblob));
     s->hostkeydata = ptrlen_from_strbuf(s->hostkeyblob);
 
@@ -99,7 +97,13 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
              * group! It's good enough for testing a client against,
              * but not for serious use.
              */
-            s->p = primegen(s->pbits, 2, 2, NULL, 1, no_progress, NULL, 1);
+            PrimeGenerationContext *pgc = primegen_new_context(
+                &primegen_probabilistic);
+            ProgressReceiver null_progress;
+            null_progress.vt = &null_progress_vt;
+            s->p = primegen_generate(pgc, pcs_new(s->pbits), &null_progress);
+            primegen_free_context(pgc);
+
             s->g = mp_from_integer(2);
             s->dh_ctx = dh_setup_gex(s->p, s->g);
             s->kex_init_value = SSH2_MSG_KEX_DH_GEX_INIT;
@@ -243,13 +247,35 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                      ssh_hash_alg(s->exhash)->text_name);
         s->ppl.bpp->pls->kctx = SSH2_PKTCTX_RSAKEX;
 
-        {
-            const struct ssh_rsa_kex_extra *extra =
-                (const struct ssh_rsa_kex_extra *)s->kex_alg->extra;
+        const struct ssh_rsa_kex_extra *extra =
+            (const struct ssh_rsa_kex_extra *)s->kex_alg->extra;
 
-	    s->rsa_kex_key = snew(RSAKey);
-	    rsa_generate(s->rsa_kex_key, extra->minklen, no_progress, NULL);
-	    s->rsa_kex_key->comment = NULL;
+        if (s->ssc && s->ssc->rsa_kex_key) {
+            int klen = ssh_rsakex_klen(s->ssc->rsa_kex_key);
+            if (klen >= extra->minklen) {
+                ppl_logevent("Using configured %d-bit RSA key", klen);
+                s->rsa_kex_key = s->ssc->rsa_kex_key;
+            } else {
+                ppl_logevent("Configured %d-bit RSA key is too short (min %d)",
+                             klen, extra->minklen);
+            }
+        }
+
+        if (!s->rsa_kex_key) {
+            ppl_logevent("Generating a %d-bit RSA key", extra->minklen);
+
+            s->rsa_kex_key = snew(RSAKey);
+
+            PrimeGenerationContext *pgc = primegen_new_context(
+                &primegen_probabilistic);
+            ProgressReceiver null_progress;
+            null_progress.vt = &null_progress_vt;
+            rsa_generate(s->rsa_kex_key, extra->minklen, false,
+                         pgc, &null_progress);
+            primegen_free_context(pgc);
+
+            s->rsa_kex_key->comment = NULL;
+            s->rsa_kex_key_needs_freeing = true;
         }
 
         pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEXRSA_PUBKEY);
@@ -288,8 +314,12 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
             return;
         }
 
-        ssh_rsakex_freekey(s->rsa_kex_key);
+        if (s->rsa_kex_key_needs_freeing) {
+            ssh_rsakex_freekey(s->rsa_kex_key);
+            sfree(s->rsa_kex_key);
+        }
         s->rsa_kex_key = NULL;
+        s->rsa_kex_key_needs_freeing = false;
 
         pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEXRSA_DONE);
         put_stringsb(pktout, finalise_and_sign_exhash(s));

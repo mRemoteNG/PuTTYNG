@@ -8,9 +8,10 @@
 #define PUTTY_SSHPPL_H
 
 typedef void (*packet_handler_fn_t)(PacketProtocolLayer *ppl, PktIn *pktin);
+typedef struct PacketProtocolLayerVtable PacketProtocolLayerVtable;
 
 struct PacketProtocolLayerVtable {
-    void (*free)(PacketProtocolLayer *); 
+    void (*free)(PacketProtocolLayer *);
     void (*process_queue)(PacketProtocolLayer *ppl);
     bool (*get_specials)(
         PacketProtocolLayer *ppl, add_special_fn_t add_special, void *ctx);
@@ -19,6 +20,7 @@ struct PacketProtocolLayerVtable {
     bool (*want_user_input)(PacketProtocolLayer *ppl);
     void (*got_user_input)(PacketProtocolLayer *ppl);
     void (*reconfigure)(PacketProtocolLayer *ppl, Conf *conf);
+    size_t (*queued_data_size)(PacketProtocolLayer *ppl);
 
     /* Protocol-level name of this layer. */
     const char *name;
@@ -73,6 +75,8 @@ static inline void ssh_ppl_got_user_input(PacketProtocolLayer *ppl)
 { ppl->vt->got_user_input(ppl); }
 static inline void ssh_ppl_reconfigure(PacketProtocolLayer *ppl, Conf *conf)
 { ppl->vt->reconfigure(ppl, conf); }
+static inline size_t ssh_ppl_queued_data_size(PacketProtocolLayer *ppl)
+{ return ppl->vt->queued_data_size(ppl); }
 
 /* ssh_ppl_free is more than just a macro wrapper on the vtable; it
  * does centralised parts of the freeing too. */
@@ -90,6 +94,11 @@ void ssh_ppl_setup_queues(PacketProtocolLayer *ppl,
  * avoid dereferencing itself on return from this function! */
 void ssh_ppl_replace(PacketProtocolLayer *old, PacketProtocolLayer *new);
 
+/* Default implementation of queued_data_size, which just adds up the
+ * sizes of all the packets in pq_out. A layer can override this if it
+ * has other things to take into account as well. */
+size_t ssh_ppl_default_queued_data_size(PacketProtocolLayer *ppl);
+
 PacketProtocolLayer *ssh1_login_new(
     Conf *conf, const char *host, int port,
     PacketProtocolLayer *successor_layer);
@@ -103,11 +112,11 @@ PacketProtocolLayer *ssh2_transport_new(
     const char *client_greeting, const char *server_greeting,
     struct ssh_connection_shared_gss_state *shgss,
     struct DataTransferStats *stats, PacketProtocolLayer *higher_layer,
-    bool is_server);
+    const SshServerConfig *ssc);
 PacketProtocolLayer *ssh2_userauth_new(
     PacketProtocolLayer *successor_layer,
     const char *hostname, const char *fullhostname,
-    Filename *keyfile, bool tryagent,
+    Filename *keyfile, bool show_banner, bool tryagent,
     const char *default_username, bool change_username,
     bool try_ki_auth,
     bool try_gssapi_auth, bool try_gssapi_kex_auth,

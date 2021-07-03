@@ -1,11 +1,7 @@
 #include "rcstuff.h"
 
-#ifdef PUTTYNG
-#define APPNAME "PuTTYNG"
-#else
 #define APPNAME "PuTTY"
-#endif // PUTTYNG
-#define APPDESC "SSH, Telnet and Rlogin client"
+#define APPDESC "SSH, Telnet, Rlogin, and SUPDUP client"
 
 #include "winhelp.rc2"
 #include "win_res.rc2"

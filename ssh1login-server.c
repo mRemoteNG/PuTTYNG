@@ -11,11 +11,14 @@
 #include "sshppl.h"
 #include "sshcr.h"
 #include "sshserver.h"
+#include "sshkeygen.h"
 
 struct ssh1_login_server_state {
     int crState;
 
     PacketProtocolLayer *successor_layer;
+
+    const SshServerConfig *ssc;
 
     int remote_protoflags;
     int local_protoflags;
@@ -41,7 +44,7 @@ struct ssh1_login_server_state {
     PacketProtocolLayer ppl;
 };
 
-static void ssh1_login_server_free(PacketProtocolLayer *); 
+static void ssh1_login_server_free(PacketProtocolLayer *);
 static void ssh1_login_server_process_queue(PacketProtocolLayer *);
 
 static bool ssh1_login_server_get_specials(
@@ -55,27 +58,27 @@ static void ssh1_login_server_got_user_input(PacketProtocolLayer *ppl) {}
 static void ssh1_login_server_reconfigure(
     PacketProtocolLayer *ppl, Conf *conf) {}
 
-static const struct PacketProtocolLayerVtable ssh1_login_server_vtable = {
-    ssh1_login_server_free,
-    ssh1_login_server_process_queue,
-    ssh1_login_server_get_specials,
-    ssh1_login_server_special_cmd,
-    ssh1_login_server_want_user_input,
-    ssh1_login_server_got_user_input,
-    ssh1_login_server_reconfigure,
-    NULL /* no layer names in SSH-1 */,
+static const PacketProtocolLayerVtable ssh1_login_server_vtable = {
+    .free = ssh1_login_server_free,
+    .process_queue = ssh1_login_server_process_queue,
+    .get_specials = ssh1_login_server_get_specials,
+    .special_cmd = ssh1_login_server_special_cmd,
+    .want_user_input = ssh1_login_server_want_user_input,
+    .got_user_input = ssh1_login_server_got_user_input,
+    .reconfigure = ssh1_login_server_reconfigure,
+    .queued_data_size = ssh_ppl_default_queued_data_size,
+    .name = NULL, /* no layer names in SSH-1 */
 };
-
-static void no_progress(void *param, int action, int phase, int iprogress) {}
 
 PacketProtocolLayer *ssh1_login_server_new(
     PacketProtocolLayer *successor_layer, RSAKey *hostkey,
-    AuthPolicy *authpolicy)
+    AuthPolicy *authpolicy, const SshServerConfig *ssc)
 {
     struct ssh1_login_server_state *s = snew(struct ssh1_login_server_state);
     memset(s, 0, sizeof(*s));
     s->ppl.vt = &ssh1_login_server_vtable;
 
+    s->ssc = ssc;
     s->hostkey = hostkey;
     s->authpolicy = authpolicy;
 
@@ -137,16 +140,20 @@ static void ssh1_login_server_process_queue(PacketProtocolLayer *ppl)
         if (server_key_bits < 512)
             server_key_bits = s->hostkey->bytes + 256;
         s->servkey = snew(RSAKey);
-        rsa_generate(s->servkey, server_key_bits, no_progress, NULL);
+
+        PrimeGenerationContext *pgc = primegen_new_context(
+            &primegen_probabilistic);
+        ProgressReceiver null_progress;
+        null_progress.vt = &null_progress_vt;
+        rsa_generate(s->servkey, server_key_bits, false, pgc, &null_progress);
+        primegen_free_context(pgc);
+
         s->servkey->comment = NULL;
         s->servkey_generated_here = true;
     }
 
     s->local_protoflags = SSH1_PROTOFLAGS_SUPPORTED;
-    /* FIXME: ability to configure this to a subset */
-    s->supported_ciphers_mask = ((1U << SSH_CIPHER_3DES) |
-                                 (1U << SSH_CIPHER_BLOWFISH) |
-                                 (1U << SSH_CIPHER_DES));
+    s->supported_ciphers_mask = s->ssc->ssh1_cipher_mask;
     s->supported_auths_mask = 0;
     s->ap_methods = auth_methods(s->authpolicy);
     if (s->ap_methods & AUTHMETHOD_PASSWORD)
@@ -218,7 +225,7 @@ static void ssh1_login_server_process_queue(PacketProtocolLayer *ppl)
         if (rsa_ssh1_decrypt_pkcs1(s->sesskey, larger, data)) {
             mp_free(s->sesskey);
             s->sesskey = mp_from_bytes_be(ptrlen_from_strbuf(data));
-            data->len = 0;
+            strbuf_clear(data);
             if (rsa_ssh1_decrypt_pkcs1(s->sesskey, smaller, data) &&
                 data->len == sizeof(s->session_key)) {
                 memcpy(s->session_key, data->u, sizeof(s->session_key));
@@ -241,8 +248,8 @@ static void ssh1_login_server_process_queue(PacketProtocolLayer *ppl)
 
     {
         const ssh_cipheralg *cipher =
-            (s->cipher_type == SSH_CIPHER_BLOWFISH ? &ssh_blowfish_ssh1 :
-             s->cipher_type == SSH_CIPHER_DES ? &ssh_des : &ssh_3des_ssh1);
+            (s->cipher_type == SSH1_CIPHER_BLOWFISH ? &ssh_blowfish_ssh1 :
+             s->cipher_type == SSH1_CIPHER_DES ? &ssh_des : &ssh_3des_ssh1);
         ssh1_bpp_new_cipher(s->ppl.bpp, cipher, s->session_key);
     }
 
@@ -291,18 +298,34 @@ static void ssh1_login_server_process_queue(PacketProtocolLayer *ppl)
                 mp_int *modulus = get_mp_ssh1(pktin);
                 s->authkey = auth_publickey_ssh1(
                     s->authpolicy, s->username, modulus);
+
+                if (!s->authkey &&
+                    s->ssc->stunt_pretend_to_accept_any_pubkey) {
+                    mp_int *zero = mp_from_integer(0);
+                    mp_int *fake_challenge = mp_random_in_range(zero, modulus);
+
+                    pktout = ssh_bpp_new_pktout(
+                        s->ppl.bpp, SSH1_SMSG_AUTH_RSA_CHALLENGE);
+                    put_mp_ssh1(pktout, fake_challenge);
+                    pq_push(s->ppl.out_pq, pktout);
+
+                    mp_free(zero);
+                    mp_free(fake_challenge);
+                }
+
                 mp_free(modulus);
             }
 
-            if (!s->authkey)
+            if (!s->authkey &&
+                !s->ssc->stunt_pretend_to_accept_any_pubkey)
                 continue;
 
-            if (s->authkey->bytes < 32) {
+            if (s->authkey && s->authkey->bytes < 32) {
                 ppl_logevent("Auth key far too small");
                 continue;
             }
 
-            {
+            if (s->authkey) {
                 unsigned char *rsabuf =
                     snewn(s->authkey->bytes, unsigned char);
 
@@ -341,6 +364,9 @@ static void ssh1_login_server_process_queue(PacketProtocolLayer *ppl)
                                 pktin->type, ssh1_pkt_type(pktin->type));
                 return;
             }
+
+            if (!s->authkey)
+                continue;
 
             {
                 ptrlen response = get_data(pktin, 16);

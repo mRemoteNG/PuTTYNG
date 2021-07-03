@@ -5,12 +5,10 @@ struct outstanding_succfail;
 struct ssh1_connection_state {
     int crState;
 
-    Ssh *ssh;
-
     Conf *conf;
     int local_protoflags, remote_protoflags;
 
-    tree234 *channels;		       /* indexed by local id */
+    tree234 *channels;                 /* indexed by local id */
 
     /* In SSH-1, the main session doesn't take the form of a 'channel'
      * according to the wire protocol. But we want to use the same API
@@ -33,8 +31,6 @@ struct ssh1_connection_state {
     struct X11FakeAuth *x11auth;
     tree234 *x11authtree;
 
-    bool agent_fwd_enabled;
-
     tree234 *rportfwds;
     PortFwdManager *portfwdmgr;
     bool portfwdmgr_configured;
@@ -51,6 +47,11 @@ struct ssh1_connection_state {
 
     bool compressing;                  /* used in server mode only */
     bool sent_exit_status;             /* also for server mode */
+
+    prompts_t *antispoof_prompt;
+    int antispoof_ret;
+
+    const SshServerConfig *ssc;
 
     ConnectionLayer cl;
     PacketProtocolLayer ppl;
@@ -118,3 +119,5 @@ bool ssh1_handle_direction_specific_packet(
     struct ssh1_connection_state *s, PktIn *pktin);
 
 bool ssh1_check_termination(struct ssh1_connection_state *s);
+
+bool ssh1_connection_need_antispoof_prompt(struct ssh1_connection_state *s);

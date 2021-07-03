@@ -344,12 +344,12 @@ static unsigned share_find_unused_id
     low = low_orig;
     high = high_orig = count234(sharestate->connections);
     while (high - low > 1) {
-	mid = (high + low) / 2;
-	cs = index234(sharestate->connections, mid);
-	if (cs->id == first + (mid - low_orig))
-	    low = mid;		       /* this one is still in the sequence */
-	else
-	    high = mid;		       /* this one is past the end */
+        mid = (high + low) / 2;
+        cs = index234(sharestate->connections, mid);
+        if (cs->id == first + (mid - low_orig))
+            low = mid;                 /* this one is still in the sequence */
+        else
+            high = mid;                /* this one is past the end */
     }
 
     /*
@@ -368,7 +368,7 @@ static unsigned share_find_unused_id
     {
         struct ssh_sharing_connstate dummy;
         dummy.id = ret;
-	assert(NULL == find234(sharestate->connections, &dummy, NULL));
+        assert(NULL == find234(sharestate->connections, &dummy, NULL));
     }
     return ret;
 }
@@ -581,7 +581,7 @@ static struct share_channel *share_add_channel
     if (chan->state != UNACKNOWLEDGED) {
         if (add234(cs->channels_by_server, chan) != chan) {
             del234(cs->channels_by_us, chan);
-            sfree(chan);            
+            sfree(chan);
             return NULL;
         }
     }
@@ -705,8 +705,8 @@ static void share_remove_forwarding(struct ssh_sharing_connstate *cs,
     sfree(fwd);
 }
 
-static void log_downstream(struct ssh_sharing_connstate *cs,
-                           const char *logfmt, ...)
+static PRINTF_LIKE(2, 3) void log_downstream(struct ssh_sharing_connstate *cs,
+                                             const char *logfmt, ...)
 {
     va_list ap;
     char *buf;
@@ -719,8 +719,8 @@ static void log_downstream(struct ssh_sharing_connstate *cs,
     sfree(buf);
 }
 
-static void log_general(struct ssh_sharing_state *sharestate,
-                        const char *logfmt, ...)
+static PRINTF_LIKE(2, 3) void log_general(struct ssh_sharing_state *sharestate,
+                                          const char *logfmt, ...)
 {
     va_list ap;
     char *buf;
@@ -938,7 +938,7 @@ static void share_disconnect(struct ssh_sharing_connstate *cs,
 }
 
 static void share_closing(Plug *plug, const char *error_msg, int error_code,
-			  bool calling_back)
+                          bool calling_back)
 {
     struct ssh_sharing_connstate *cs = container_of(
         plug, struct ssh_sharing_connstate, plug);
@@ -1292,8 +1292,7 @@ void share_got_pkt_from_server(ssh_sharing_connstate *cs, int type,
         break;
 
       default:
-        assert(!"This packet type should never have come from ssh.c");
-        break;
+        unreachable("This packet type should never have come from ssh.c");
     }
 }
 
@@ -1523,7 +1522,7 @@ static void share_got_pkt_from_downstream(struct ssh_sharing_connstate *cs,
             err = dupprintf("CHANNEL_OPEN_CONFIRMATION packet cited unknown channel %u", (unsigned)server_id);
             goto confused;
         }
-            
+
         PUT_32BIT_MSB_FIRST(pkt + id_pos, new_id);
 
         chan = share_add_channel(cs, old_id, new_id, server_id, OPEN, maxpkt);
@@ -1795,8 +1794,9 @@ static void share_receive(Plug *plug, int urgent, const char *data, size_t len)
     }
     if (cs->recvlen > 0 && cs->recvbuf[cs->recvlen-1] == '\015')
         cs->recvlen--;                 /* trim off \r before \n */
+    ptrlen verstring = make_ptrlen(cs->recvbuf, cs->recvlen);
     log_downstream(cs, "Downstream version string: %.*s",
-                   cs->recvlen, cs->recvbuf);
+                   PTRLEN_PRINTF(verstring));
     cs->got_verstring = true;
 
     /*
@@ -1846,7 +1846,7 @@ static void share_sent(Plug *plug, size_t bufsize)
 }
 
 static void share_listen_closing(Plug *plug, const char *error_msg,
-				 int error_code, bool calling_back)
+                                 int error_code, bool calling_back)
 {
     ssh_sharing_state *sharestate =
         container_of(plug, ssh_sharing_state, plug);
@@ -1859,7 +1859,7 @@ static void share_listen_closing(Plug *plug, const char *error_msg,
 static void share_send_verstring(ssh_sharing_connstate *cs)
 {
     char *fullstring = dupcat("SSHCONNECTION@putty.projects.tartarus.org-2.0-",
-                              cs->parent->server_verstring, "\015\012", NULL);
+                              cs->parent->server_verstring, "\015\012");
     sk_write(cs->sock, fullstring, strlen(fullstring));
     sfree(fullstring);
 
@@ -1902,11 +1902,9 @@ void share_activate(ssh_sharing_state *sharestate,
 }
 
 static const PlugVtable ssh_sharing_conn_plugvt = {
-    NULL, /* no log function, because that's for outgoing connections */
-    share_closing,
-    share_receive,
-    share_sent,
-    NULL /* no accepting function, because we've already done it */
+    .closing = share_closing,
+    .receive = share_receive,
+    .sent = share_sent,
 };
 
 static int share_listen_accepting(Plug *plug,
@@ -1937,10 +1935,10 @@ static int share_listen_accepting(Plug *plug,
     cs->sock = constructor(ctx, &cs->plug);
     if ((err = sk_socket_error(cs->sock)) != NULL) {
         sfree(cs);
-	return err != NULL;
+        return err != NULL;
     }
 
-    sk_set_frozen(cs->sock, 0);
+    sk_set_frozen(cs->sock, false);
 
     add234(cs->parent->connections, cs);
 
@@ -1993,8 +1991,13 @@ static int share_listen_accepting(Plug *plug,
  */
 char *ssh_share_sockname(const char *host, int port, Conf *conf)
 {
-    char *username = get_remote_username(conf);
+    char *username = NULL;
     char *sockname;
+
+    /* Include the username we're logging in as in the hash, unless
+     * we're using a protocol for which it's completely irrelevant. */
+    if (conf_get_int(conf, CONF_protocol) != PROT_SSHCONN)
+        username = get_remote_username(conf);
 
     if (port == 22) {
         if (username)
@@ -2041,11 +2044,8 @@ bool ssh_share_test_for_upstream(const char *host, int port, Conf *conf)
 }
 
 static const PlugVtable ssh_sharing_listen_plugvt = {
-    NULL, /* no log function, because that's for outgoing connections */
-    share_listen_closing,
-    NULL, /* no receive function on a listening socket */
-    NULL, /* no sent function on a listening socket */
-    share_listen_accepting
+    .closing = share_listen_closing,
+    .accepting = share_listen_accepting,
 };
 
 void ssh_connshare_provide_connlayer(ssh_sharing_state *sharestate,

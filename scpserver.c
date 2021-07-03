@@ -334,15 +334,15 @@ static void scp_reply_attrs(
     reply->attrs = attrs;
 }
 
-static const struct SftpReplyBuilderVtable ScpReplyReceiver_vt = {
-    scp_reply_ok,
-    scp_reply_error,
-    scp_reply_simple_name,
-    scp_reply_name_count,
-    scp_reply_full_name,
-    scp_reply_handle,
-    scp_reply_data,
-    scp_reply_attrs,
+static const SftpReplyBuilderVtable ScpReplyReceiver_vt = {
+    .reply_ok = scp_reply_ok,
+    .reply_error = scp_reply_error,
+    .reply_simple_name = scp_reply_simple_name,
+    .reply_name_count = scp_reply_name_count,
+    .reply_full_name = scp_reply_full_name,
+    .reply_handle = scp_reply_handle,
+    .reply_data = scp_reply_data,
+    .reply_attrs = scp_reply_attrs,
 };
 
 static void scp_reply_setup(ScpReplyReceiver *reply)
@@ -431,7 +431,8 @@ static char *scp_source_err_base(ScpSource *scp, const char *fmt, va_list ap)
     sshfwd_write_ext(scp->sc, true, "\012", 1);
     return msg;
 }
-static void scp_source_err(ScpSource *scp, const char *fmt, ...)
+static PRINTF_LIKE(2, 3) void scp_source_err(
+    ScpSource *scp, const char *fmt, ...)
 {
     va_list ap;
 
@@ -439,7 +440,8 @@ static void scp_source_err(ScpSource *scp, const char *fmt, ...)
     sfree(scp_source_err_base(scp, fmt, ap));
     va_end(ap);
 }
-static void scp_source_abort(ScpSource *scp, const char *fmt, ...)
+static PRINTF_LIKE(2, 3) void scp_source_abort(
+    ScpSource *scp, const char *fmt, ...)
 {
     va_list ap;
     char *msg;
@@ -458,7 +460,7 @@ static void scp_source_abort(ScpSource *scp, const char *fmt, ...)
 static void scp_source_push_name(
     ScpSource *scp, ptrlen pathname, struct fxp_attrs attrs, const char *wc)
 {
-    if (!(attrs.flags & SSH_FILEXFER_ATTR_PERMISSIONS)) {        
+    if (!(attrs.flags & SSH_FILEXFER_ATTR_PERMISSIONS)) {
         scp_source_err(scp, "unable to read file permissions for %.*s",
                        PTRLEN_PRINTF(pathname));
         return;
@@ -485,11 +487,11 @@ static size_t scp_source_send(ScpServer *s, const void *data, size_t length);
 static void scp_source_eof(ScpServer *s);
 static void scp_source_throttle(ScpServer *s, bool throttled);
 
-static struct ScpServerVtable ScpSource_ScpServer_vt = {
-    scp_source_free,
-    scp_source_send,
-    scp_source_throttle,
-    scp_source_eof,
+static const ScpServerVtable ScpSource_ScpServer_vt = {
+    .free = scp_source_free,
+    .send = scp_source_send,
+    .throttle = scp_source_throttle,
+    .eof = scp_source_eof,
 };
 
 static ScpSource *scp_source_new(
@@ -521,6 +523,9 @@ static void scp_source_free(ScpServer *s)
         scp->head = node->next;
         sfree(node);
     }
+
+    delete_callbacks_for_context(scp);
+
     sfree(scp);
 }
 
@@ -552,7 +557,7 @@ static void scp_source_send_CD(
     while ((slash = memchr(name.ptr, '/', name.len)) != NULL)
         name = make_ptrlen(
             slash+1, name.len - (slash+1 - (const char *)name.ptr));
- 
+
     scp->pending_commands[scp->n_pending_commands++] = cmd = strbuf_new();
     strbuf_catf(cmd, "%c%04o %"PRIu64" %.*s\012", cmdchar,
                 (unsigned)(attrs.permissions & 07777),
@@ -998,11 +1003,11 @@ static size_t scp_sink_send(ScpServer *s, const void *data, size_t length);
 static void scp_sink_eof(ScpServer *s);
 static void scp_sink_throttle(ScpServer *s, bool throttled) {}
 
-static struct ScpServerVtable ScpSink_ScpServer_vt = {
-    scp_sink_free,
-    scp_sink_send,
-    scp_sink_throttle,
-    scp_sink_eof,
+static const ScpServerVtable ScpSink_ScpServer_vt = {
+    .free = scp_sink_free,
+    .send = scp_sink_send,
+    .throttle = scp_sink_throttle,
+    .eof = scp_sink_eof,
 };
 
 static void scp_sink_coroutine(ScpSink *scp);
@@ -1071,7 +1076,7 @@ static void scp_sink_coroutine(ScpSink *scp)
          * Send an ack, and read a command.
          */
         sshfwd_write(scp->sc, "\0", 1);
-        scp->command->len = 0;
+        strbuf_clear(scp->command);
         while (1) {
             crMaybeWaitUntilV(scp->input_eof || bufchain_size(&scp->data) > 0);
             if (scp->input_eof)
@@ -1092,7 +1097,7 @@ static void scp_sink_coroutine(ScpSink *scp)
         /*
          * Parse the command.
          */
-        scp->command->len--;           /* chomp the newline */
+        strbuf_chomp(scp->command, '\n');
         scp->command_chr = scp->command->len > 0 ? scp->command->s[0] : '\0';
         if (scp->command_chr == 'T') {
             unsigned long dummy1, dummy2;
@@ -1128,7 +1133,7 @@ static void scp_sink_coroutine(ScpSink *scp)
 
             ptrlen leafname = make_ptrlen(
                 p, scp->command->len - (p - scp->command->s));
-            scp->filename_sb->len = 0;
+            strbuf_clear(scp->filename_sb);
             put_datapl(scp->filename_sb, scp->head->destpath);
             if (scp->head->isdir) {
                 if (scp->filename_sb->len > 0 &&
@@ -1292,11 +1297,11 @@ static size_t scp_error_send(ScpServer *s, const void *data, size_t length)
 static void scp_error_eof(ScpServer *s) {}
 static void scp_error_throttle(ScpServer *s, bool throttled) {}
 
-static struct ScpServerVtable ScpError_ScpServer_vt = {
-    scp_error_free,
-    scp_error_send,
-    scp_error_throttle,
-    scp_error_eof,
+static const ScpServerVtable ScpError_ScpServer_vt = {
+    .free = scp_error_free,
+    .send = scp_error_send,
+    .throttle = scp_error_throttle,
+    .eof = scp_error_eof,
 };
 
 static void scp_error_send_message_cb(void *vscp)
@@ -1309,7 +1314,8 @@ static void scp_error_send_message_cb(void *vscp)
     sshfwd_initiate_close(scp->sc, scp->message);
 }
 
-static ScpError *scp_error_new(SshChannel *sc, const char *fmt, ...)
+static PRINTF_LIKE(2, 3) ScpError *scp_error_new(
+    SshChannel *sc, const char *fmt, ...)
 {
     va_list ap;
     ScpError *scp = snew(ScpError);

@@ -17,7 +17,7 @@ int filexfer_get_userpass_input(Seat *seat, prompts_t *p, bufchain *input)
     int ret;
     ret = cmdline_get_passwd_input(p);
     if (ret == -1)
-	ret = console_get_userpass_input(p);
+        ret = console_get_userpass_input(p);
     return ret;
 }
 
@@ -40,17 +40,17 @@ char *psftp_lcd(char *dir)
     char *ret = NULL;
 
     if (!SetCurrentDirectory(dir)) {
-	LPVOID message;
-	int i;
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-		      FORMAT_MESSAGE_FROM_SYSTEM |
-		      FORMAT_MESSAGE_IGNORE_INSERTS,
-		      NULL, GetLastError(),
-		      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		      (LPTSTR)&message, 0, NULL);
-	i = strcspn((char *)message, "\n");
-	ret = dupprintf("%.*s", i, (LPCTSTR)message);
-	LocalFree(message);
+        LPVOID message;
+        int i;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                      FORMAT_MESSAGE_FROM_SYSTEM |
+                      FORMAT_MESSAGE_IGNORE_INSERTS,
+                      NULL, GetLastError(),
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      (LPTSTR)&message, 0, NULL);
+        i = strcspn((char *)message, "\n");
+        ret = dupprintf("%.*s", i, (LPCTSTR)message);
+        LocalFree(message);
     }
 
     return ret;
@@ -65,7 +65,7 @@ char *psftp_getcwd(void)
     char *ret = snewn(256, char);
     size_t len = GetCurrentDirectory(256, ret);
     if (len > 256)
-	ret = sresize(ret, len, char);
+        ret = sresize(ret, len, char);
     GetCurrentDirectory(len, ret);
     return ret;
 }
@@ -94,16 +94,16 @@ struct RFile {
 };
 
 RFile *open_existing_file(const char *name, uint64_t *size,
-			  unsigned long *mtime, unsigned long *atime,
+                          unsigned long *mtime, unsigned long *atime,
                           long *perms)
 {
     HANDLE h;
     RFile *ret;
 
     h = CreateFile(name, GENERIC_READ, FILE_SHARE_READ, NULL,
-		   OPEN_EXISTING, 0, 0);
+                   OPEN_EXISTING, 0, 0);
     if (h == INVALID_HANDLE_VALUE)
-	return NULL;
+        return NULL;
 
     ret = snew(RFile);
     ret->h = h;
@@ -115,12 +115,12 @@ RFile *open_existing_file(const char *name, uint64_t *size,
     }
 
     if (mtime || atime) {
-	FILETIME actime, wrtime;
-	GetFileTime(h, NULL, &actime, &wrtime);
-	if (atime)
-	    TIME_WIN_TO_POSIX(actime, *atime);
-	if (mtime)
-	    TIME_WIN_TO_POSIX(wrtime, *mtime);
+        FILETIME actime, wrtime;
+        GetFileTime(h, NULL, &actime, &wrtime);
+        if (atime)
+            TIME_WIN_TO_POSIX(actime, *atime);
+        if (mtime)
+            TIME_WIN_TO_POSIX(wrtime, *mtime);
     }
 
     if (perms)
@@ -133,9 +133,9 @@ int read_from_file(RFile *f, void *buffer, int length)
 {
     DWORD read;
     if (!ReadFile(f->h, buffer, length, &read, NULL))
-	return -1;		       /* error */
+        return -1;                     /* error */
     else
-	return read;
+        return read;
 }
 
 void close_rfile(RFile *f)
@@ -154,9 +154,9 @@ WFile *open_new_file(const char *name, long perms)
     WFile *ret;
 
     h = CreateFile(name, GENERIC_WRITE, 0, NULL,
-		   CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+                   CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
     if (h == INVALID_HANDLE_VALUE)
-	return NULL;
+        return NULL;
 
     ret = snew(WFile);
     ret->h = h;
@@ -170,9 +170,9 @@ WFile *open_existing_wfile(const char *name, uint64_t *size)
     WFile *ret;
 
     h = CreateFile(name, GENERIC_WRITE, FILE_SHARE_READ, NULL,
-		   OPEN_EXISTING, 0, 0);
+                   OPEN_EXISTING, 0, 0);
     if (h == INVALID_HANDLE_VALUE)
-	return NULL;
+        return NULL;
 
     ret = snew(WFile);
     ret->h = h;
@@ -190,9 +190,9 @@ int write_to_file(WFile *f, void *buffer, int length)
 {
     DWORD written;
     if (!WriteFile(f->h, buffer, length, &written, NULL))
-	return -1;		       /* error */
+        return -1;                     /* error */
     else
-	return written;
+        return written;
 }
 
 void set_file_times(WFile *f, unsigned long mtime, unsigned long atime)
@@ -217,27 +217,27 @@ int seek_file(WFile *f, uint64_t offset, int whence)
 
     switch (whence) {
     case FROM_START:
-	movemethod = FILE_BEGIN;
-	break;
+        movemethod = FILE_BEGIN;
+        break;
     case FROM_CURRENT:
-	movemethod = FILE_CURRENT;
-	break;
+        movemethod = FILE_CURRENT;
+        break;
     case FROM_END:
-	movemethod = FILE_END;
-	break;
+        movemethod = FILE_END;
+        break;
     default:
-	return -1;
+        return -1;
     }
 
     {
         LONG lo = offset & 0xFFFFFFFFU, hi = offset >> 32;
         SetFilePointer(f->h, lo, &hi, movemethod);
     }
-    
+
     if (GetLastError() != NO_ERROR)
-	return -1;
-    else 
-	return 0;
+        return -1;
+    else
+        return 0;
 }
 
 uint64_t get_file_posn(WFile *f)
@@ -254,11 +254,11 @@ int file_type(const char *name)
     attr = GetFileAttributes(name);
     /* We know of no `weird' files under Windows. */
     if (attr == (DWORD)-1)
-	return FILE_TYPE_NONEXISTENT;
+        return FILE_TYPE_NONEXISTENT;
     else if (attr & FILE_ATTRIBUTE_DIRECTORY)
-	return FILE_TYPE_DIRECTORY;
+        return FILE_TYPE_DIRECTORY;
     else
-	return FILE_TYPE_FILE;
+        return FILE_TYPE_FILE;
 }
 
 struct DirHandle {
@@ -274,11 +274,11 @@ DirHandle *open_directory(const char *name, const char **errmsg)
     DirHandle *ret;
 
     /* Enumerate files in dir `foo'. */
-    findfile = dupcat(name, "/*", NULL);
+    findfile = dupcat(name, "/*");
     h = FindFirstFile(findfile, &fdat);
     if (h == INVALID_HANDLE_VALUE) {
         *errmsg = win_strerror(GetLastError());
-	return NULL;
+        return NULL;
     }
     sfree(findfile);
 
@@ -292,37 +292,37 @@ char *read_filename(DirHandle *dir)
 {
     do {
 
-	if (!dir->name) {
-	    WIN32_FIND_DATA fdat;
-	    if (!FindNextFile(dir->h, &fdat))
-		return NULL;
-	    else
-		dir->name = dupstr(fdat.cFileName);
-	}
+        if (!dir->name) {
+            WIN32_FIND_DATA fdat;
+            if (!FindNextFile(dir->h, &fdat))
+                return NULL;
+            else
+                dir->name = dupstr(fdat.cFileName);
+        }
 
-	assert(dir->name);
-	if (dir->name[0] == '.' &&
-	    (dir->name[1] == '\0' ||
-	     (dir->name[1] == '.' && dir->name[2] == '\0'))) {
-	    sfree(dir->name);
-	    dir->name = NULL;
-	}
+        assert(dir->name);
+        if (dir->name[0] == '.' &&
+            (dir->name[1] == '\0' ||
+             (dir->name[1] == '.' && dir->name[2] == '\0'))) {
+            sfree(dir->name);
+            dir->name = NULL;
+        }
 
     } while (!dir->name);
 
     if (dir->name) {
-	char *ret = dir->name;
-	dir->name = NULL;
-	return ret;
+        char *ret = dir->name;
+        dir->name = NULL;
+        return ret;
     } else
-	return NULL;
+        return NULL;
 }
 
 void close_directory(DirHandle *dir)
 {
     FindClose(dir->h);
     if (dir->name)
-	sfree(dir->name);
+        sfree(dir->name);
     sfree(dir);
 }
 
@@ -333,12 +333,12 @@ int test_wildcard(const char *name, bool cmdline)
 
     /* First see if the exact name exists. */
     if (GetFileAttributes(name) != (DWORD)-1)
-	return WCTYPE_FILENAME;
+        return WCTYPE_FILENAME;
 
     /* Otherwise see if a wildcard match finds anything. */
     fh = FindFirstFile(name, &fdat);
     if (fh == INVALID_HANDLE_VALUE)
-	return WCTYPE_NONEXISTENT;
+        return WCTYPE_NONEXISTENT;
 
     FindClose(fh);
     return WCTYPE_WILDCARD;
@@ -367,8 +367,8 @@ char *stripslashes(const char *str, bool local)
     if (p) str = p+1;
 
     if (local) {
-	p = strrchr(str, '\\');
-	if (p) str = p+1;
+        p = strrchr(str, '\\');
+        if (p) str = p+1;
     }
 
     return (char *)str;
@@ -383,7 +383,7 @@ WildcardMatcher *begin_wildcard_matching(const char *name)
 
     h = FindFirstFile(name, &fdat);
     if (h == INVALID_HANDLE_VALUE)
-	return NULL;
+        return NULL;
 
     ret = snew(WildcardMatcher);
     ret->h = h;
@@ -391,11 +391,11 @@ WildcardMatcher *begin_wildcard_matching(const char *name)
     last = stripslashes(ret->srcpath, true);
     *last = '\0';
     if (fdat.cFileName[0] == '.' &&
-	(fdat.cFileName[1] == '\0' ||
-	 (fdat.cFileName[1] == '.' && fdat.cFileName[2] == '\0')))
-	ret->name = NULL;
+        (fdat.cFileName[1] == '\0' ||
+         (fdat.cFileName[1] == '.' && fdat.cFileName[2] == '\0')))
+        ret->name = NULL;
     else
-	ret->name = dupcat(ret->srcpath, fdat.cFileName, NULL);
+        ret->name = dupcat(ret->srcpath, fdat.cFileName);
 
     return ret;
 }
@@ -403,32 +403,32 @@ WildcardMatcher *begin_wildcard_matching(const char *name)
 char *wildcard_get_filename(WildcardMatcher *dir)
 {
     while (!dir->name) {
-	WIN32_FIND_DATA fdat;
+        WIN32_FIND_DATA fdat;
 
-	if (!FindNextFile(dir->h, &fdat))
-	    return NULL;
+        if (!FindNextFile(dir->h, &fdat))
+            return NULL;
 
-	if (fdat.cFileName[0] == '.' &&
-	    (fdat.cFileName[1] == '\0' ||
-	     (fdat.cFileName[1] == '.' && fdat.cFileName[2] == '\0')))
-	    dir->name = NULL;
-	else
-	    dir->name = dupcat(dir->srcpath, fdat.cFileName, NULL);
+        if (fdat.cFileName[0] == '.' &&
+            (fdat.cFileName[1] == '\0' ||
+             (fdat.cFileName[1] == '.' && fdat.cFileName[2] == '\0')))
+            dir->name = NULL;
+        else
+            dir->name = dupcat(dir->srcpath, fdat.cFileName);
     }
 
     if (dir->name) {
-	char *ret = dir->name;
-	dir->name = NULL;
-	return ret;
+        char *ret = dir->name;
+        dir->name = NULL;
+        return ret;
     } else
-	return NULL;
+        return NULL;
 }
 
 void finish_wildcard_matching(WildcardMatcher *dir)
 {
     FindClose(dir->h);
     if (dir->name)
-	sfree(dir->name);
+        sfree(dir->name);
     sfree(dir->srcpath);
     sfree(dir);
 }
@@ -436,10 +436,10 @@ void finish_wildcard_matching(WildcardMatcher *dir)
 bool vet_filename(const char *name)
 {
     if (strchr(name, '/') || strchr(name, '\\') || strchr(name, ':'))
-	return false;
+        return false;
 
     if (!name[strspn(name, ".")])      /* entirely composed of dots */
-	return false;
+        return false;
 
     return true;
 }
@@ -455,162 +455,45 @@ char *dir_file_cat(const char *dir, const char *file)
     return dupcat(
         dir, (ptrlen_endswith(dir_pl, PTRLEN_LITERAL("\\"), NULL) ||
               ptrlen_endswith(dir_pl, PTRLEN_LITERAL("/"), NULL)) ? "" : "\\",
-        file, NULL);
+        file);
 }
 
 /* ----------------------------------------------------------------------
  * Platform-specific network handling.
  */
-
-/*
- * Be told what socket we're supposed to be using.
- */
-static SOCKET sftp_ssh_socket = INVALID_SOCKET;
-static HANDLE netevent = INVALID_HANDLE_VALUE;
-char *do_select(SOCKET skt, bool startup)
+struct winsftp_cliloop_ctx {
+    HANDLE other_event;
+    int toret;
+};
+static bool winsftp_cliloop_pre(void *vctx, const HANDLE **extra_handles,
+                                size_t *n_extra_handles)
 {
-    int events;
-    if (startup)
-	sftp_ssh_socket = skt;
-    else
-	sftp_ssh_socket = INVALID_SOCKET;
+    struct winsftp_cliloop_ctx *ctx = (struct winsftp_cliloop_ctx *)vctx;
 
-    if (p_WSAEventSelect) {
-	if (startup) {
-	    events = (FD_CONNECT | FD_READ | FD_WRITE |
-		      FD_OOB | FD_CLOSE | FD_ACCEPT);
-	    netevent = CreateEvent(NULL, false, false, NULL);
-	} else {
-	    events = 0;
-	}
-	if (p_WSAEventSelect(skt, netevent, events) == SOCKET_ERROR) {
-	    switch (p_WSAGetLastError()) {
-	      case WSAENETDOWN:
-		return "Network is down";
-	      default:
-		return "WSAEventSelect(): unknown error";
-	    }
-	}
+    if (ctx->other_event != INVALID_HANDLE_VALUE) {
+        *extra_handles = &ctx->other_event;
+        *n_extra_handles = 1;
     }
-    return NULL;
-}
 
+    return true;
+}
+static bool winsftp_cliloop_post(void *vctx, size_t extra_handle_index)
+{
+    struct winsftp_cliloop_ctx *ctx = (struct winsftp_cliloop_ctx *)vctx;
+
+    if (ctx->other_event != INVALID_HANDLE_VALUE &&
+        extra_handle_index == 0)
+        ctx->toret = 1;       /* other_event was set */
+
+    return false; /* always run only one loop iteration */
+}
 int do_eventsel_loop(HANDLE other_event)
 {
-    int n, nhandles, nallhandles, netindex, otherindex;
-    unsigned long next, then;
-    long ticks;
-    HANDLE *handles;
-    SOCKET *sklist;
-    int skcount;
-    unsigned long now = GETTICKCOUNT();
-
-    if (toplevel_callback_pending()) {
-        ticks = 0;
-        next = now;
-    } else if (run_timers(now, &next)) {
-	then = now;
-	now = GETTICKCOUNT();
-	if (now - then > next - then)
-	    ticks = 0;
-	else
-	    ticks = next - now;
-    } else {
-	ticks = INFINITE;
-        /* no need to initialise next here because we can never get
-         * WAIT_TIMEOUT */
-    }
-
-    handles = handle_get_events(&nhandles);
-    handles = sresize(handles, nhandles+2, HANDLE);
-    nallhandles = nhandles;
-
-    if (netevent != INVALID_HANDLE_VALUE)
-	handles[netindex = nallhandles++] = netevent;
-    else
-	netindex = -1;
-    if (other_event != INVALID_HANDLE_VALUE)
-	handles[otherindex = nallhandles++] = other_event;
-    else
-	otherindex = -1;
-
-    n = WaitForMultipleObjects(nallhandles, handles, false, ticks);
-
-    if ((unsigned)(n - WAIT_OBJECT_0) < (unsigned)nhandles) {
-	handle_got_event(handles[n - WAIT_OBJECT_0]);
-    } else if (netindex >= 0 && n == WAIT_OBJECT_0 + netindex) {
-	WSANETWORKEVENTS things;
-	SOCKET socket;
-	int i, socketstate;
-
-	/*
-	 * We must not call select_result() for any socket
-	 * until we have finished enumerating within the
-	 * tree. This is because select_result() may close
-	 * the socket and modify the tree.
-	 */
-	/* Count the active sockets. */
-	i = 0;
-	for (socket = first_socket(&socketstate);
-	     socket != INVALID_SOCKET;
-	     socket = next_socket(&socketstate)) i++;
-
-	/* Expand the buffer if necessary. */
-	sklist = snewn(i, SOCKET);
-
-	/* Retrieve the sockets into sklist. */
-	skcount = 0;
-	for (socket = first_socket(&socketstate);
-	     socket != INVALID_SOCKET;
-	     socket = next_socket(&socketstate)) {
-	    sklist[skcount++] = socket;
-	}
-
-	/* Now we're done enumerating; go through the list. */
-	for (i = 0; i < skcount; i++) {
-	    WPARAM wp;
-	    socket = sklist[i];
-	    wp = (WPARAM) socket;
-	    if (!p_WSAEnumNetworkEvents(socket, NULL, &things)) {
-		static const struct { int bit, mask; } eventtypes[] = {
-		    {FD_CONNECT_BIT, FD_CONNECT},
-		    {FD_READ_BIT, FD_READ},
-		    {FD_CLOSE_BIT, FD_CLOSE},
-		    {FD_OOB_BIT, FD_OOB},
-		    {FD_WRITE_BIT, FD_WRITE},
-		    {FD_ACCEPT_BIT, FD_ACCEPT},
-		};
-		int e;
-
-		noise_ultralight(NOISE_SOURCE_IOID, socket);
-
-		for (e = 0; e < lenof(eventtypes); e++)
-		    if (things.lNetworkEvents & eventtypes[e].mask) {
-			LPARAM lp;
-			int err = things.iErrorCode[eventtypes[e].bit];
-			lp = WSAMAKESELECTREPLY(eventtypes[e].mask, err);
-			select_result(wp, lp);
-		    }
-	    }
-	}
-
-	sfree(sklist);
-    }
-
-    sfree(handles);
-
-    run_toplevel_callbacks();
-
-    if (n == WAIT_TIMEOUT) {
-	now = next;
-    } else {
-	now = GETTICKCOUNT();
-    }
-
-    if (otherindex >= 0 && n == WAIT_OBJECT_0 + otherindex)
-	return 1;
-
-    return 0;
+    struct winsftp_cliloop_ctx ctx[1];
+    ctx->other_event = other_event;
+    ctx->toret = 0;
+    cli_main_loop(winsftp_cliloop_pre, winsftp_cliloop_post, ctx);
+    return ctx->toret;
 }
 
 /*
@@ -625,59 +508,60 @@ int do_eventsel_loop(HANDLE other_event)
 int ssh_sftp_loop_iteration(void)
 {
     if (p_WSAEventSelect == NULL) {
-	fd_set readfds;
-	int ret;
-	unsigned long now = GETTICKCOUNT(), then;
+        fd_set readfds;
+        int ret;
+        unsigned long now = GETTICKCOUNT(), then;
+        SOCKET skt = winselcli_unique_socket();
 
-	if (sftp_ssh_socket == INVALID_SOCKET)
-	    return -1;		       /* doom */
+        if (skt == INVALID_SOCKET)
+            return -1;                 /* doom */
 
-	if (socket_writable(sftp_ssh_socket))
-	    select_result((WPARAM) sftp_ssh_socket, (LPARAM) FD_WRITE);
+        if (socket_writable(skt))
+            select_result((WPARAM) skt, (LPARAM) FD_WRITE);
 
-	do {
-	    unsigned long next;
-	    long ticks;
-	    struct timeval tv, *ptv;
+        do {
+            unsigned long next;
+            long ticks;
+            struct timeval tv, *ptv;
 
-	    if (run_timers(now, &next)) {
-		then = now;
-		now = GETTICKCOUNT();
-		if (now - then > next - then)
-		    ticks = 0;
-		else
-		    ticks = next - now;
-		tv.tv_sec = ticks / 1000;
-		tv.tv_usec = ticks % 1000 * 1000;
-		ptv = &tv;
-	    } else {
-		ptv = NULL;
-	    }
+            if (run_timers(now, &next)) {
+                then = now;
+                now = GETTICKCOUNT();
+                if (now - then > next - then)
+                    ticks = 0;
+                else
+                    ticks = next - now;
+                tv.tv_sec = ticks / 1000;
+                tv.tv_usec = ticks % 1000 * 1000;
+                ptv = &tv;
+            } else {
+                ptv = NULL;
+            }
 
-	    FD_ZERO(&readfds);
-	    FD_SET(sftp_ssh_socket, &readfds);
-	    ret = p_select(1, &readfds, NULL, NULL, ptv);
+            FD_ZERO(&readfds);
+            FD_SET(skt, &readfds);
+            ret = p_select(1, &readfds, NULL, NULL, ptv);
 
-	    if (ret < 0)
-		return -1;		       /* doom */
-	    else if (ret == 0)
-		now = next;
-	    else
-		now = GETTICKCOUNT();
+            if (ret < 0)
+                return -1;                     /* doom */
+            else if (ret == 0)
+                now = next;
+            else
+                now = GETTICKCOUNT();
 
-	} while (ret == 0);
+        } while (ret == 0);
 
-	select_result((WPARAM) sftp_ssh_socket, (LPARAM) FD_READ);
+        select_result((WPARAM) skt, (LPARAM) FD_READ);
 
-	return 0;
+        return 0;
     } else {
-	return do_eventsel_loop(INVALID_HANDLE_VALUE);
+        return do_eventsel_loop(INVALID_HANDLE_VALUE);
     }
 }
 
 /*
  * Read a command line from standard input.
- * 
+ *
  * In the presence of WinSock 2, we can use WSAEventSelect to
  * mediate between the socket and stdin, meaning we can send
  * keepalives and respond to server events even while waiting at
@@ -703,16 +587,16 @@ static DWORD WINAPI command_read_thread(void *param)
 char *ssh_sftp_get_cmdline(const char *prompt, bool no_fds_ok)
 {
     int ret;
-    struct command_read_ctx actx, *ctx = &actx;
+    struct command_read_ctx ctx[1];
     DWORD threadid;
     HANDLE hThread;
 
     fputs(prompt, stdout);
     fflush(stdout);
 
-    if ((sftp_ssh_socket == INVALID_SOCKET && no_fds_ok) ||
-	p_WSAEventSelect == NULL) {
-	return fgetline(stdin);	       /* very simple */
+    if ((winselcli_unique_socket() == INVALID_SOCKET && no_fds_ok) ||
+        p_WSAEventSelect == NULL) {
+        return fgetline(stdin);        /* very simple */
     }
 
     /*
@@ -724,16 +608,18 @@ char *ssh_sftp_get_cmdline(const char *prompt, bool no_fds_ok)
 
     hThread = CreateThread(NULL, 0, command_read_thread, ctx, 0, &threadid);
     if (!hThread) {
-	CloseHandle(ctx->event);
-	fprintf(stderr, "Unable to create command input thread\n");
-	cleanup_exit(1);
+        CloseHandle(ctx->event);
+        fprintf(stderr, "Unable to create command input thread\n");
+        cleanup_exit(1);
     }
 
     do {
-	ret = do_eventsel_loop(ctx->event);
+        ret = do_eventsel_loop(ctx->event);
 
-	/* Error return can only occur if netevent==NULL, and it ain't. */
-	assert(ret >= 0);
+        /* do_eventsel_loop can't return an error (unlike
+         * ssh_sftp_loop_iteration, which can return -1 if select goes
+         * wrong or if the socket doesn't exist). */
+        assert(ret >= 0);
     } while (ret == 0);
 
     CloseHandle(hThread);
@@ -742,10 +628,10 @@ char *ssh_sftp_get_cmdline(const char *prompt, bool no_fds_ok)
     return ctx->line;
 }
 
-void platform_psftp_pre_conn_setup(void)
+void platform_psftp_pre_conn_setup(LogPolicy *lp)
 {
-    if (restricted_acl) {
-        lp_eventlog(default_logpolicy, "Running with restricted process ACL");
+    if (restricted_acl()) {
+        lp_eventlog(lp, "Running with restricted process ACL");
     }
 }
 

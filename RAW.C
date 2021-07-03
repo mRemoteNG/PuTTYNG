@@ -33,8 +33,8 @@ static void c_write(Raw *raw, const void *buf, size_t len)
     sk_set_frozen(raw->s, backlog > RAW_MAX_BACKLOG);
 }
 
-static void raw_log(Plug *plug, int type, SockAddr *addr, int port,
-		    const char *error_msg, int error_code)
+static void raw_log(Plug *plug, PlugLogType type, SockAddr *addr, int port,
+                    const char *error_msg, int error_code)
 {
     Raw *raw = container_of(plug, Raw, plug);
     backend_socket_log(raw->seat, raw->logctx, type, addr, port,
@@ -57,7 +57,7 @@ static void raw_check_close(Raw *raw)
 }
 
 static void raw_closing(Plug *plug, const char *error_msg, int error_code,
-			bool calling_back)
+                        bool calling_back)
 {
     Raw *raw = container_of(plug, Raw, plug);
 
@@ -105,24 +105,24 @@ static void raw_sent(Plug *plug, size_t bufsize)
 }
 
 static const PlugVtable Raw_plugvt = {
-    raw_log,
-    raw_closing,
-    raw_receive,
-    raw_sent
+    .log = raw_log,
+    .closing = raw_closing,
+    .receive = raw_receive,
+    .sent = raw_sent,
 };
 
 /*
  * Called to set up the raw connection.
- * 
+ *
  * Returns an error message, or NULL on success.
  *
  * Also places the canonical host name into `realhost'. It must be
  * freed by the caller.
  */
-static const char *raw_init(Seat *seat, Backend **backend_handle,
-                            LogContext *logctx, Conf *conf,
-			    const char *host, int port, char **realhost,
-                            bool nodelay, bool keepalive)
+static char *raw_init(const BackendVtable *vt, Seat *seat,
+                      Backend **backend_handle, LogContext *logctx,
+                      Conf *conf, const char *host, int port,
+                      char **realhost, bool nodelay, bool keepalive)
 {
     SockAddr *addr;
     const char *err;
@@ -135,7 +135,7 @@ static const char *raw_init(Seat *seat, Backend **backend_handle,
 
     raw = snew(Raw);
     raw->plug.vt = &Raw_plugvt;
-    raw->backend.vt = &raw_backend;
+    raw->backend.vt = vt;
     raw->s = NULL;
     raw->closed_on_socket_error = false;
     *backend_handle = &raw->backend;
@@ -154,12 +154,12 @@ static const char *raw_init(Seat *seat, Backend **backend_handle,
     addr = name_lookup(host, port, realhost, conf, addressfamily,
                        raw->logctx, "main connection");
     if ((err = sk_addr_error(addr)) != NULL) {
-	sk_addr_free(addr);
-	return err;
+        sk_addr_free(addr);
+        return dupstr(err);
     }
 
     if (port < 0)
-	port = 23;		       /* default telnet port */
+        port = 23;                     /* default telnet port */
 
     /*
      * Open socket.
@@ -167,18 +167,18 @@ static const char *raw_init(Seat *seat, Backend **backend_handle,
     raw->s = new_connection(addr, *realhost, port, false, true, nodelay,
                             keepalive, &raw->plug, conf);
     if ((err = sk_socket_error(raw->s)) != NULL)
-	return err;
+        return dupstr(err);
 
     loghost = conf_get_str(conf, CONF_loghost);
     if (*loghost) {
-	char *colon;
+        char *colon;
 
-	sfree(*realhost);
-	*realhost = dupstr(loghost);
+        sfree(*realhost);
+        *realhost = dupstr(loghost);
 
-	colon = host_strrchr(*realhost, ':');
-	if (colon)
-	    *colon++ = '\0';
+        colon = host_strrchr(*realhost, ':');
+        if (colon)
+            *colon++ = '\0';
     }
 
     return NULL;
@@ -189,7 +189,7 @@ static void raw_free(Backend *be)
     Raw *raw = container_of(be, Raw, backend);
 
     if (raw->s)
-	sk_close(raw->s);
+        sk_close(raw->s);
     conf_free(raw->conf);
     sfree(raw);
 }
@@ -209,7 +209,7 @@ static size_t raw_send(Backend *be, const char *buf, size_t len)
     Raw *raw = container_of(be, Raw, backend);
 
     if (raw->s == NULL)
-	return 0;
+        return 0;
 
     raw->bufsize = sk_write(raw->s, buf, len);
 
@@ -278,7 +278,7 @@ static void raw_unthrottle(Backend *be, size_t backlog)
 static bool raw_ldisc(Backend *be, int option)
 {
     if (option == LD_EDIT || option == LD_ECHO)
-	return true;
+        return true;
     return false;
 }
 
@@ -307,24 +307,24 @@ static int raw_cfg_info(Backend *be)
     return 0;
 }
 
-const struct BackendVtable raw_backend = {
-    raw_init,
-    raw_free,
-    raw_reconfig,
-    raw_send,
-    raw_sendbuffer,
-    raw_size,
-    raw_special,
-    raw_get_specials,
-    raw_connected,
-    raw_exitcode,
-    raw_sendok,
-    raw_ldisc,
-    raw_provide_ldisc,
-    raw_unthrottle,
-    raw_cfg_info,
-    NULL /* test_for_upstream */,
-    "raw",
-    PROT_RAW,
-    0
+const BackendVtable raw_backend = {
+    .init = raw_init,
+    .free = raw_free,
+    .reconfig = raw_reconfig,
+    .send = raw_send,
+    .sendbuffer = raw_sendbuffer,
+    .size = raw_size,
+    .special = raw_special,
+    .get_specials = raw_get_specials,
+    .connected = raw_connected,
+    .exitcode = raw_exitcode,
+    .sendok = raw_sendok,
+    .ldisc_option_state = raw_ldisc,
+    .provide_ldisc = raw_provide_ldisc,
+    .unthrottle = raw_unthrottle,
+    .cfg_info = raw_cfg_info,
+    .id = "raw",
+    .displayname = "Raw",
+    .protocol = PROT_RAW,
+    .default_port = 0,
 };

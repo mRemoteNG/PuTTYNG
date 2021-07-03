@@ -45,12 +45,13 @@ static PktOut *ssh_verstring_new_pktout(int type);
 static void ssh_verstring_queue_disconnect(BinaryPacketProtocol *bpp,
                                           const char *msg, int category);
 
-static const struct BinaryPacketProtocolVtable ssh_verstring_vtable = {
-    ssh_verstring_free,
-    ssh_verstring_handle_input,
-    ssh_verstring_handle_output,
-    ssh_verstring_new_pktout,
-    ssh_verstring_queue_disconnect,
+static const BinaryPacketProtocolVtable ssh_verstring_vtable = {
+    .free = ssh_verstring_free,
+    .handle_input = ssh_verstring_handle_input,
+    .handle_output = ssh_verstring_handle_output,
+    .new_pktout = ssh_verstring_new_pktout,
+    .queue_disconnect = ssh_verstring_queue_disconnect,
+    .packet_size_limit = 0xFFFFFFFF, /* no special limit for this bpp */
 };
 
 static void ssh_detect_bugs(struct ssh_verstring_state *s);
@@ -302,8 +303,7 @@ void ssh_verstring_handle_input(BinaryPacketProtocol *bpp)
     while (s->vstring->len > 0 &&
            (s->vstring->s[s->vstring->len-1] == '\r' ||
             s->vstring->s[s->vstring->len-1] == '\n'))
-        s->vstring->len--;
-    s->vstring->s[s->vstring->len] = '\0';
+        strbuf_shrink_by(s->vstring, 1);
 
     bpp_logevent("Remote version: %s", s->vstring->s);
 

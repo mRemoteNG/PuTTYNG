@@ -26,29 +26,29 @@ static bool mainchan_rcvd_exit_signal_numeric(
     Channel *chan, int signum, bool core_dumped, ptrlen msg);
 static void mainchan_request_response(Channel *chan, bool success);
 
-static const struct ChannelVtable mainchan_channelvt = {
-    mainchan_free,
-    mainchan_open_confirmation,
-    mainchan_open_failure,
-    mainchan_send,
-    mainchan_send_eof,
-    mainchan_set_input_wanted,
-    mainchan_log_close_msg,
-    chan_default_want_close,
-    mainchan_rcvd_exit_status,
-    mainchan_rcvd_exit_signal,
-    mainchan_rcvd_exit_signal_numeric,
-    chan_no_run_shell,
-    chan_no_run_command,
-    chan_no_run_subsystem,
-    chan_no_enable_x11_forwarding,
-    chan_no_enable_agent_forwarding,
-    chan_no_allocate_pty,
-    chan_no_set_env,
-    chan_no_send_break,
-    chan_no_send_signal,
-    chan_no_change_window_size,
-    mainchan_request_response,
+static const ChannelVtable mainchan_channelvt = {
+    .free = mainchan_free,
+    .open_confirmation = mainchan_open_confirmation,
+    .open_failed = mainchan_open_failure,
+    .send = mainchan_send,
+    .send_eof = mainchan_send_eof,
+    .set_input_wanted = mainchan_set_input_wanted,
+    .log_close_msg = mainchan_log_close_msg,
+    .want_close = chan_default_want_close,
+    .rcvd_exit_status = mainchan_rcvd_exit_status,
+    .rcvd_exit_signal = mainchan_rcvd_exit_signal,
+    .rcvd_exit_signal_numeric = mainchan_rcvd_exit_signal_numeric,
+    .run_shell = chan_no_run_shell,
+    .run_command = chan_no_run_command,
+    .run_subsystem = chan_no_run_subsystem,
+    .enable_x11_forwarding = chan_no_enable_x11_forwarding,
+    .enable_agent_forwarding = chan_no_enable_agent_forwarding,
+    .allocate_pty = chan_no_allocate_pty,
+    .set_env = chan_no_set_env,
+    .send_break = chan_no_send_break,
+    .send_signal = chan_no_send_signal,
+    .change_window_size = chan_no_change_window_size,
+    .request_response = mainchan_request_response,
 };
 
 typedef enum MainChanType {
@@ -134,15 +134,15 @@ static void mainchan_open_confirmation(Channel *chan)
         sshfwd_hint_channel_is_simple(mc->sc);
 
     if (mc->type == MAINCHAN_SESSION) {
-	/*
-	 * Send the CHANNEL_REQUESTS for the main session channel.
+        /*
+         * Send the CHANNEL_REQUESTS for the main session channel.
          */
         char *key, *val, *cmd;
         struct X11Display *x11disp;
         struct X11FakeAuth *x11auth;
         bool retry_cmd_now = false;
 
-	if (conf_get_bool(mc->conf, CONF_x11_forward)) {;
+        if (conf_get_bool(mc->conf, CONF_x11_forward)) {
             char *x11_setup_err;
             if ((x11disp = x11_setup_display(
                      conf_get_str(mc->conf, CONF_x11_display),
@@ -161,12 +161,12 @@ static void mainchan_open_confirmation(Channel *chan)
             }
         }
 
-	if (ssh_agent_forwarding_permitted(mc->cl)) {
+        if (ssh_agent_forwarding_permitted(mc->cl)) {
             sshfwd_request_agent_forwarding(mc->sc, true);
             mc->req_agent = true;
         }
 
-	if (!conf_get_bool(mc->conf, CONF_nopty)) {
+        if (!conf_get_bool(mc->conf, CONF_nopty)) {
             sshfwd_request_pty(
                 mc->sc, true, mc->conf, mc->term_width, mc->term_height);
             mc->req_pty = true;
@@ -236,7 +236,6 @@ static void mainchan_request_response(Channel *chan, bool success)
 
         if (success) {
             ppl_logevent("Agent forwarding enabled");
-            ssh_enable_agent_fwd(mc->cl);
         } else {
             ppl_logevent("Agent forwarding refused");
         }
@@ -327,27 +326,11 @@ static void mainchan_ready(mainchan *mc)
     /* If an EOF arrived before we were ready, handle it now. */
     if (mc->eof_pending) {
         mc->eof_pending = false;
-	mainchan_special_cmd(mc, SS_EOF, 0);
+        mainchan_special_cmd(mc, SS_EOF, 0);
     }
 
     ssh_ldisc_update(mc->ppl->ssh);
     queue_idempotent_callback(&mc->ppl->ic_process_queue);
-}
-
-struct mainchan_open_failure_abort_ctx {
-    Ssh *ssh;
-    char *abort_message;
-};
-
-static void mainchan_open_failure_abort(void *vctx)
-{
-    struct mainchan_open_failure_abort_ctx *ctx =
-        (struct mainchan_open_failure_abort_ctx *)vctx;
-    ssh_sw_abort(
-        ctx->ssh, "Server refused to open main channel: %s",
-        ctx->abort_message);
-    sfree(ctx->abort_message);
-    sfree(ctx);
 }
 
 static void mainchan_open_failure(Channel *chan, const char *errtext)
@@ -355,12 +338,8 @@ static void mainchan_open_failure(Channel *chan, const char *errtext)
     assert(chan->vt == &mainchan_channelvt);
     mainchan *mc = container_of(chan, mainchan, chan);
 
-    struct mainchan_open_failure_abort_ctx *ctx =
-        snew(struct mainchan_open_failure_abort_ctx);
-
-    ctx->ssh = mc->ppl->ssh;
-    ctx->abort_message = dupstr(errtext);
-    queue_toplevel_callback(mainchan_open_failure_abort, ctx);
+    ssh_sw_abort_deferred(mc->ppl->ssh,
+                          "Server refused to open main channel: %s", errtext);
 }
 
 static size_t mainchan_send(Channel *chan, bool is_stderr,

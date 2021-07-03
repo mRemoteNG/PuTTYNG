@@ -24,6 +24,7 @@ struct ssh2_userauth_server_state {
     ptrlen session_id;
 
     AuthPolicy *authpolicy;
+    const SshServerConfig *ssc;
 
     ptrlen username, service, method;
     unsigned methods, this_method;
@@ -37,15 +38,12 @@ struct ssh2_userauth_server_state {
 static void ssh2_userauth_server_free(PacketProtocolLayer *);
 static void ssh2_userauth_server_process_queue(PacketProtocolLayer *);
 
-static const struct PacketProtocolLayerVtable ssh2_userauth_server_vtable = {
-    ssh2_userauth_server_free,
-    ssh2_userauth_server_process_queue,
-    NULL /* get_specials */,
-    NULL /* special_cmd */,
-    NULL /* want_user_input */,
-    NULL /* got_user_input */,
-    NULL /* reconfigure */,
-    "ssh-userauth",
+static const PacketProtocolLayerVtable ssh2_userauth_server_vtable = {
+    .free = ssh2_userauth_server_free,
+    .process_queue = ssh2_userauth_server_process_queue,
+    .queued_data_size = ssh_ppl_default_queued_data_size,
+    .name = "ssh-userauth",
+    /* other methods are NULL */
 };
 
 static void free_auth_kbdint(AuthKbdInt *aki)
@@ -64,7 +62,8 @@ static void free_auth_kbdint(AuthKbdInt *aki)
 }
 
 PacketProtocolLayer *ssh2_userauth_server_new(
-    PacketProtocolLayer *successor_layer, AuthPolicy *authpolicy)
+    PacketProtocolLayer *successor_layer, AuthPolicy *authpolicy,
+    const SshServerConfig *ssc)
 {
     struct ssh2_userauth_server_state *s =
         snew(struct ssh2_userauth_server_state);
@@ -73,6 +72,7 @@ PacketProtocolLayer *ssh2_userauth_server_new(
 
     s->successor_layer = successor_layer;
     s->authpolicy = authpolicy;
+    s->ssc = ssc;
 
     return &s->ppl;
 }
@@ -123,6 +123,13 @@ static void ssh2_userauth_server_process_queue(PacketProtocolLayer *ppl)
     crBegin(s->crState);
 
     s->session_id = ssh2_transport_get_session_id(s->transport_layer);
+
+    if (s->ssc->banner.ptr) {
+        pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_USERAUTH_BANNER);
+        put_stringpl(pktout, s->ssc->banner);
+        put_stringz(pktout, ""); /* language tag */
+        pq_push(s->ppl.out_pq, pktout);
+    }
 
     while (1) {
         crMaybeWaitUntilV((pktin = ssh2_userauth_server_pop(s)) != NULL);
@@ -192,7 +199,7 @@ static void ssh2_userauth_server_process_queue(PacketProtocolLayer *ppl)
                 goto failure;
             }
         } else if (ptrlen_eq_string(s->method, "publickey")) {
-            bool has_signature, success;
+            bool has_signature, success, send_pk_ok, key_really_ok;
             ptrlen algorithm, blob, signature;
             const ssh_keyalg *keyalg;
             ssh_key *key;
@@ -206,7 +213,23 @@ static void ssh2_userauth_server_process_queue(PacketProtocolLayer *ppl)
             algorithm = get_string(pktin);
             blob = get_string(pktin);
 
-            if (!auth_publickey(s->authpolicy, s->username, blob))
+            key_really_ok = auth_publickey(s->authpolicy, s->username, blob);
+            send_pk_ok = key_really_ok ||
+                s->ssc->stunt_pretend_to_accept_any_pubkey;
+
+            if (!has_signature) {
+                if (!send_pk_ok)
+                    goto failure;
+
+                pktout = ssh_bpp_new_pktout(
+                    s->ppl.bpp, SSH2_MSG_USERAUTH_PK_OK);
+                put_stringpl(pktout, algorithm);
+                put_stringpl(pktout, blob);
+                pq_push(s->ppl.out_pq, pktout);
+                continue; /* skip USERAUTH_{SUCCESS,FAILURE} epilogue */
+            }
+
+            if (!key_really_ok)
                 goto failure;
 
             keyalg = find_pubkey_alg_len(algorithm);
@@ -215,16 +238,6 @@ static void ssh2_userauth_server_process_queue(PacketProtocolLayer *ppl)
             key = ssh_key_new_pub(keyalg, blob);
             if (!key)
                 goto failure;
-
-            if (!has_signature) {
-                ssh_key_free(key);
-                pktout = ssh_bpp_new_pktout(
-                    s->ppl.bpp, SSH2_MSG_USERAUTH_PK_OK);
-                put_stringpl(pktout, algorithm);
-                put_stringpl(pktout, blob);
-                pq_push(s->ppl.out_pq, pktout);
-                continue; /* skip USERAUTH_{SUCCESS,FAILURE} epilogue */
-            }
 
             sigdata = strbuf_new();
             ssh2_userauth_server_add_session_id(s, sigdata);

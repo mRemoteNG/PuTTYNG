@@ -4,6 +4,7 @@
 
 #include "putty.h"
 #include "ssh.h"
+#include "storage.h"
 #include <assert.h>
 
 /* Collect environmental noise every 5 minutes */
@@ -18,7 +19,7 @@ int random_active = 0;
  */
 void random_add_noise(NoiseSourceId source, const void *noise, int length) { }
 void random_ref(void) { }
-void random_setup_special(void) { }
+void random_setup_custom(const ssh_hashalg *hash) { }
 void random_unref(void) { }
 void random_read(void *out, size_t size)
 {
@@ -37,7 +38,7 @@ static unsigned long next_noise_collection;
 void random_add_noise(NoiseSourceId source, const void *noise, int length)
 {
     if (!random_active)
-	return;
+        return;
 
     prng_add_entropy(global_prng, source, make_ptrlen(noise, length));
 }
@@ -45,9 +46,9 @@ void random_add_noise(NoiseSourceId source, const void *noise, int length)
 static void random_timer(void *ctx, unsigned long now)
 {
     if (random_active > 0 && now == next_noise_collection) {
-	noise_regular();
-	next_noise_collection =
-	    schedule_timer(NOISE_REGULAR_INTERVAL, random_timer,
+        noise_regular();
+        next_noise_collection =
+            schedule_timer(NOISE_REGULAR_INTERVAL, random_timer,
                            &random_timer_ctx);
     }
 }
@@ -78,16 +79,28 @@ static void random_create(const ssh_hashalg *hashalg)
     random_save_seed();
 }
 
+void random_save_seed(void)
+{
+    int len;
+    void *data;
+
+    if (random_active) {
+        random_get_savedata(&data, &len);
+        write_random_seed(data, len);
+        sfree(data);
+    }
+}
+
 void random_ref(void)
 {
     if (!random_active++)
         random_create(&ssh_sha256);
 }
 
-void random_setup_special()
+void random_setup_custom(const ssh_hashalg *hash)
 {
     random_active++;
-    random_create(&ssh_sha512);
+    random_create(hash);
 }
 
 void random_reseed(ptrlen seed)
@@ -97,16 +110,22 @@ void random_reseed(ptrlen seed)
     prng_seed_finish(global_prng);
 }
 
-void random_unref(void)
+void random_clear(void)
 {
-    assert(random_active > 0);
-    if (random_active == 1) {
+    if (global_prng) {
         random_save_seed();
         expire_timer_context(&random_timer_ctx);
         prng_free(global_prng);
         global_prng = NULL;
+        random_active = 0;
     }
-    random_active--;
+}
+
+void random_unref(void)
+{
+    assert(random_active > 0);
+    if (--random_active == 0)
+        random_clear();
 }
 
 void random_read(void *buf, size_t size)

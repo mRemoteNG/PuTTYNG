@@ -146,10 +146,6 @@ SOURCE=..\..\..\ldisc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\..\ldiscucs.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\..\..\logging.c
 # End Source File
 # Begin Source File
@@ -211,10 +207,6 @@ SOURCE=..\..\..\raw.c
 # Begin Source File
 
 SOURCE=..\..\..\rlogin.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\..\sercfg.c
 # End Source File
 # Begin Source File
 
@@ -303,7 +295,15 @@ SOURCE=..\..\..\ssharcf.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshargon2.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\sshauxcrypt.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\sshblake2.c
 # End Source File
 # Begin Source File
 
@@ -387,7 +387,15 @@ SOURCE=..\..\..\sshsha.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshsha3.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\sshshare.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\sshutils.c
 # End Source File
 # Begin Source File
 
@@ -400,6 +408,10 @@ SOURCE=..\..\..\sshzlib.c
 # Begin Source File
 
 SOURCE=..\..\..\stripctrl.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\supdup.c
 # End Source File
 # Begin Source File
 
@@ -520,6 +532,10 @@ SOURCE=..\..\..\windows\winproxy.c
 # Begin Source File
 
 SOURCE=..\..\..\windows\winsecur.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winselgui.c
 # End Source File
 # Begin Source File
 
@@ -675,6 +691,10 @@ SOURCE=..\..\..\sshppl.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\..\sshserver.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\..\sshsignals.h
 # End Source File
 # Begin Source File
@@ -716,6 +736,10 @@ SOURCE=..\..\..\windows\wincapi.h
 # Begin Source File
 
 SOURCE=..\..\..\windows\winhelp.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\windows\winseat.h
 # End Source File
 # Begin Source File
 

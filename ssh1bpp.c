@@ -36,12 +36,13 @@ static void ssh1_bpp_queue_disconnect(BinaryPacketProtocol *bpp,
                                       const char *msg, int category);
 static PktOut *ssh1_bpp_new_pktout(int type);
 
-static const struct BinaryPacketProtocolVtable ssh1_bpp_vtable = {
-    ssh1_bpp_free,
-    ssh1_bpp_handle_input,
-    ssh1_bpp_handle_output,
-    ssh1_bpp_new_pktout,
-    ssh1_bpp_queue_disconnect,
+static const BinaryPacketProtocolVtable ssh1_bpp_vtable = {
+    .free = ssh1_bpp_free,
+    .handle_input = ssh1_bpp_handle_input,
+    .handle_output = ssh1_bpp_handle_output,
+    .new_pktout = ssh1_bpp_new_pktout,
+    .queue_disconnect = ssh1_bpp_queue_disconnect,
+    .packet_size_limit = 0xFFFFFFFF, /* no special limit for this bpp */
 };
 
 BinaryPacketProtocol *ssh1_bpp_new(LogContext *logctx)
@@ -143,9 +144,9 @@ static void ssh1_bpp_handle_input(BinaryPacketProtocol *bpp)
             s->len = toint(GET_32BIT_MSB_FIRST(lenbuf));
         }
 
-        if (s->len < 0 || s->len > 262144) { /* SSH1.5-mandated max size */
+        if (s->len < 5 || s->len > 262144) { /* SSH1.5-mandated max size */
             ssh_sw_abort(s->bpp.ssh,
-                         "Extremely large packet length from remote suggests"
+                         "Out-of-range packet length from remote suggests"
                          " data stream corruption");
             crStopV;
         }
@@ -235,6 +236,7 @@ static void ssh1_bpp_handle_input(BinaryPacketProtocol *bpp)
                        NULL, 0, NULL);
         }
 
+        s->pktin->qnode.formal_size = get_avail(s->pktin);
         pq_push(&s->bpp.in_pq, s->pktin);
 
         {
@@ -285,7 +287,7 @@ static void ssh1_bpp_handle_input(BinaryPacketProtocol *bpp)
 static PktOut *ssh1_bpp_new_pktout(int pkt_type)
 {
     PktOut *pkt = ssh_new_packet();
-    pkt->length = 4 + 8;	    /* space for length + max padding */
+    pkt->length = 4 + 8;            /* space for length + max padding */
     put_byte(pkt, pkt_type);
     pkt->prefix = pkt->length;
     pkt->type = pkt_type;

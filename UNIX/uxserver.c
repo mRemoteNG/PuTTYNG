@@ -38,7 +38,6 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 
-#define PUTTY_DO_GLOBALS	       /* actually _define_ globals */
 #include "putty.h"
 #include "mpint.h"
 #include "ssh.h"
@@ -93,14 +92,8 @@ Filename *platform_default_filename(const char *name)
 
 char *x_get_default(const char *key)
 {
-    return NULL;		       /* this is a stub */
+    return NULL;                       /* this is a stub */
 }
-
-/*
- * Our selects are synchronous, so these functions are empty stubs.
- */
-uxsel_id *uxsel_input_add(int fd, int rwx) { return NULL; }
-void uxsel_input_remove(uxsel_id *id) { }
 
 void old_keyfile_warning(void) { }
 
@@ -110,21 +103,33 @@ void timer_change_notify(unsigned long next)
 
 char *platform_get_x_display(void) { return NULL; }
 
+void make_unix_sftp_filehandle_key(void *data, size_t size)
+{
+    random_read(data, size);
+}
+
 static bool verbose;
 
-static void log_to_stderr(const char *msg)
-{
-    /*
-     * FIXME: in multi-connection proper-socket mode, prefix this with
-     * a connection id of some kind. We'll surely pass this in to
-     * sshserver.c by way of constructing a distinct LogPolicy per
-     * instance and making its containing structure contain the id -
-     * but we'll also have to arrange for those LogPolicy structs to
-     * be freed when the server instance terminates.
-     *
-     * For now, though, we only have one server instance, so no need.
-     */
+struct AuthPolicyShared {
+    struct AuthPolicy_ssh1_pubkey *ssh1keys;
+    struct AuthPolicy_ssh2_pubkey *ssh2keys;
+};
 
+struct AuthPolicy {
+    struct AuthPolicyShared *shared;
+    int kbdint_state;
+};
+
+struct server_instance {
+    unsigned id;
+    AuthPolicy ap;
+    LogPolicy logpolicy;
+};
+
+static void log_to_stderr(unsigned id, const char *msg)
+{
+    if (id != (unsigned)-1)
+        fprintf(stderr, "#%u: ", id);
     fputs(msg, stderr);
     fputc('\n', stderr);
     fflush(stderr);
@@ -132,13 +137,17 @@ static void log_to_stderr(const char *msg)
 
 static void server_eventlog(LogPolicy *lp, const char *event)
 {
+    struct server_instance *inst = container_of(
+        lp, struct server_instance, logpolicy);
     if (verbose)
-        log_to_stderr(event);
+        log_to_stderr(inst->id, event);
 }
 
 static void server_logging_error(LogPolicy *lp, const char *event)
 {
-    log_to_stderr(event);              /* unconditional */
+    struct server_instance *inst = container_of(
+        lp, struct server_instance, logpolicy);
+    log_to_stderr(inst->id, event);    /* unconditional */
 }
 
 static int server_askappend(
@@ -149,11 +158,11 @@ static int server_askappend(
 }
 
 static const LogPolicyVtable server_logpolicy_vt = {
-    server_eventlog,
-    server_askappend,
-    server_logging_error,
+    .eventlog = server_eventlog,
+    .askappend = server_askappend,
+    .logging_error = server_logging_error,
+    .verbose = null_lp_verbose_no,
 };
-LogPolicy server_logpolicy[1] = {{ &server_logpolicy_vt }};
 
 struct AuthPolicy_ssh1_pubkey {
     RSAKey key;
@@ -164,11 +173,6 @@ struct AuthPolicy_ssh2_pubkey {
     struct AuthPolicy_ssh2_pubkey *next;
 };
 
-struct AuthPolicy {
-    struct AuthPolicy_ssh1_pubkey *ssh1keys;
-    struct AuthPolicy_ssh2_pubkey *ssh2keys;
-    int kbdint_state;
-};
 unsigned auth_methods(AuthPolicy *ap)
 {
     return (AUTHMETHOD_PUBLICKEY | AUTHMETHOD_PASSWORD | AUTHMETHOD_KBDINT |
@@ -212,7 +216,7 @@ int auth_password(AuthPolicy *ap, ptrlen username, ptrlen password,
 bool auth_publickey(AuthPolicy *ap, ptrlen username, ptrlen public_blob)
 {
     struct AuthPolicy_ssh2_pubkey *iter;
-    for (iter = ap->ssh2keys; iter; iter = iter->next) {
+    for (iter = ap->shared->ssh2keys; iter; iter = iter->next) {
         if (ptrlen_eq_ptrlen(public_blob, iter->public_blob))
             return true;
     }
@@ -222,7 +226,7 @@ RSAKey *auth_publickey_ssh1(
     AuthPolicy *ap, ptrlen username, mp_int *rsa_modulus)
 {
     struct AuthPolicy_ssh1_pubkey *iter;
-    for (iter = ap->ssh1keys; iter; iter = iter->next) {
+    for (iter = ap->shared->ssh1keys; iter; iter = iter->next) {
         if (mp_cmp_eq(rsa_modulus, iter->key.modulus))
             return &iter->key;
     }
@@ -230,10 +234,11 @@ RSAKey *auth_publickey_ssh1(
 }
 AuthKbdInt *auth_kbdint_prompts(AuthPolicy *ap, ptrlen username)
 {
-    AuthKbdInt *aki = snew(AuthKbdInt);
+    AuthKbdInt *aki;
 
     switch (ap->kbdint_state) {
       case 0:
+        aki = snew(AuthKbdInt);
         aki->title = dupstr("Initial double prompt");
         aki->instruction =
             dupstr("First prompt should echo, second should not");
@@ -245,6 +250,7 @@ AuthKbdInt *auth_kbdint_prompts(AuthPolicy *ap, ptrlen username)
         aki->prompts[1].echo = false;
         return aki;
       case 1:
+        aki = snew(AuthKbdInt);
         aki->title = dupstr("Zero-prompt step");
         aki->instruction = dupstr("Shouldn't see any prompts this time");
         aki->nprompts = 0;
@@ -305,9 +311,42 @@ static void show_help(FILE *fp)
     safety_warning(fp);
     fputs("\n"
           "usage:   uppity [options]\n"
-          "options: --hostkey KEY        SSH host key (need at least one)\n"
+          "options: --listen [PORT|PATH] listen to a port on localhost, or Unix socket\n"
+          "         --listen-once        (with --listen) stop after one "
+          "connection\n"
+          "         --hostkey KEY        SSH host key (need at least one)\n"
+          "         --rsakexkey KEY      key for SSH-2 RSA key exchange "
+          "(in SSH-1 format)\n"
           "         --userkey KEY        public key"
            " acceptable for user authentication\n"
+          "         --sessiondir DIR     cwd for session subprocess (default $HOME)\n"
+          "         --bannertext TEXT    send TEXT as SSH-2 auth banner\n"
+          "         --bannerfile FILE    send contents of FILE as SSH-2 auth "
+          "banner\n"
+          "         --kexinit-kex STR    override list of SSH-2 KEX methods\n"
+          "         --kexinit-hostkey STR  override list of SSH-2 host key "
+          "types\n"
+          "         --kexinit-cscipher STR override list of SSH-2 "
+          "client->server ciphers\n"
+          "         --kexinit-sccipher STR override list of SSH-2 "
+          "server->client ciphers\n"
+          "         --kexinit-csmac STR    override list of SSH-2 "
+          "client->server MACs\n"
+          "         --kexinit-scmac STR    override list of SSH-2 "
+          "server->client MACs\n"
+          "         --kexinit-cscomp STR   override list of SSH-2 "
+          "c->s compression types\n"
+          "         --kexinit-sccomp STR   override list of SSH-2 "
+          "s->c compression types\n"
+          "         --ssh1-ciphers STR     override list of SSH-1 ciphers\n"
+          "         --ssh1-no-compression  forbid compression in SSH-1\n"
+          "         --exitsignum         send buggy numeric \"exit-signal\" "
+          "message\n"
+          "         --verbose            print event log messages to standard "
+          "error\n"
+          "         --sshlog FILE        write SSH packet log to FILE\n"
+          "         --sshrawlog FILE     write SSH packets + raw data log"
+          " to FILE\n"
           "also:    uppity --help        show this text\n"
           "         uppity --version     show version information\n"
           "\n", fp);
@@ -324,11 +363,20 @@ static void show_version_and_exit(void)
 
 const bool buildinfo_gtk_relevant = false;
 
+static bool listening = false, listen_once = false;
 static bool finished = false;
-void server_instance_terminated(void)
+void server_instance_terminated(LogPolicy *lp)
 {
-    /* FIXME: change policy here if we're running in a listening loop */
-    finished = true;
+    struct server_instance *inst = container_of(
+        lp, struct server_instance, logpolicy);
+
+    if (listening && !listen_once) {
+        log_to_stderr(inst->id, "connection terminated");
+    } else {
+        finished = true;
+    }
+
+    sfree(inst);
 }
 
 static bool longoptarg(const char *arg, const char *expected,
@@ -353,26 +401,142 @@ static bool longoptarg(const char *arg, const char *expected,
     return false;
 }
 
+static bool longoptnoarg(const char *arg, const char *expected)
+{
+    int len = strlen(expected);
+    if (memcmp(arg, expected, len))
+        return false;
+    if (arg[len] == '=') {
+        fprintf(stderr, "%s: option %s expects no argument\n",
+                appname, expected);
+        exit(1);
+    } else if (arg[len] == '\0') {
+        return true;
+    }
+    return false;
+}
+
+struct server_config {
+    Conf *conf;
+    const SshServerConfig *ssc;
+
+    ssh_key **hostkeys;
+    int nhostkeys;
+
+    RSAKey *hostkey1;
+
+    struct AuthPolicyShared *ap_shared;
+
+    unsigned next_id;
+
+    Socket *listening_socket;
+    Plug listening_plug;
+};
+
+static Plug *server_conn_plug(
+    struct server_config *cfg, struct server_instance **inst_out)
+{
+    struct server_instance *inst = snew(struct server_instance);
+
+    memset(inst, 0, sizeof(*inst));
+
+    inst->id = cfg->next_id++;
+    inst->ap.shared = cfg->ap_shared;
+    inst->logpolicy.vt = &server_logpolicy_vt;
+
+    if (inst_out)
+        *inst_out = inst;
+
+    return ssh_server_plug(
+        cfg->conf, cfg->ssc, cfg->hostkeys, cfg->nhostkeys, cfg->hostkey1,
+        &inst->ap, &inst->logpolicy, &unix_live_sftpserver_vt);
+}
+
+static void server_log(Plug *plug, PlugLogType type, SockAddr *addr, int port,
+                       const char *error_msg, int error_code)
+{
+    log_to_stderr((unsigned)-1, error_msg);
+}
+
+static void server_closing(Plug *plug, const char *error_msg, int error_code,
+                           bool calling_back)
+{
+    log_to_stderr((unsigned)-1, error_msg);
+}
+
+static int server_accepting(Plug *p, accept_fn_t constructor, accept_ctx_t ctx)
+{
+    struct server_config *cfg = container_of(
+        p, struct server_config, listening_plug);
+    Socket *s;
+    const char *err;
+
+    struct server_instance *inst;
+
+    if (listen_once) {
+        if (!cfg->listening_socket) /* in case of rapid double-accept */
+            return 1;
+        sk_close(cfg->listening_socket);
+        cfg->listening_socket = NULL;
+    }
+
+    unsigned old_next_id = cfg->next_id;
+
+    Plug *plug = server_conn_plug(cfg, &inst);
+    s = constructor(ctx, plug);
+    if ((err = sk_socket_error(s)) != NULL)
+        return 1;
+
+    SocketPeerInfo *pi = sk_peer_info(s);
+
+    if (pi->addressfamily != ADDRTYPE_LOCAL && !sk_peer_trusted(s)) {
+        fprintf(stderr, "rejected connection from %s (untrustworthy peer)\n",
+                pi->log_text);
+        sk_free_peer_info(pi);
+        sk_close(s);
+        cfg->next_id = old_next_id;
+        return 1;
+    }
+
+    char *msg = dupprintf("new connection from %s", pi->log_text);
+    log_to_stderr(inst->id, msg);
+    sfree(msg);
+    sk_free_peer_info(pi);
+
+    sk_set_frozen(s, false);
+    ssh_server_start(plug, s);
+    return 0;
+}
+
+static const PlugVtable server_plugvt = {
+    .log = server_log,
+    .closing = server_closing,
+    .accepting = server_accepting,
+};
+
 int main(int argc, char **argv)
 {
-    int *fdlist;
-    int fd;
-    int i, fdstate;
-    size_t fdsize;
-    unsigned long now;
+    int listen_port = -1;
+    const char *listen_socket = NULL;
 
     ssh_key **hostkeys = NULL;
     size_t nhostkeys = 0, hostkeysize = 0;
     RSAKey *hostkey1 = NULL;
 
-    AuthPolicy ap;
+    struct AuthPolicyShared aps;
+    SshServerConfig ssc;
 
-    Conf *conf = conf_new();
-    load_open_settings(NULL, conf);
+    Conf *conf = make_ssh_server_conf();
 
-    ap.kbdint_state = 0;
-    ap.ssh1keys = NULL;
-    ap.ssh2keys = NULL;
+    aps.ssh1keys = NULL;
+    aps.ssh2keys = NULL;
+
+    memset(&ssc, 0, sizeof(ssc));
+
+    ssc.application_name = "Uppity";
+    ssc.session_starting_dir = getenv("HOME");
+    ssc.ssh1_cipher_mask = SSH1_SUPPORTED_CIPHER_MASK;
+    ssc.ssh1_allow_compression = true;
 
     if (argc <= 1) {
         /*
@@ -392,10 +556,20 @@ int main(int argc, char **argv)
         if (!strcmp(arg, "--help")) {
             show_help(stdout);
             exit(0);
-        } else if (!strcmp(arg, "--version")) {
+        } else if (longoptnoarg(arg, "--version")) {
             show_version_and_exit();
-        } else if (!strcmp(arg, "--verbose") || !strcmp(arg, "-v")) {
+        } else if (longoptnoarg(arg, "--verbose") || !strcmp(arg, "-v")) {
             verbose = true;
+        } else if (longoptarg(arg, "--listen", &val, &argc, &argv)) {
+            if (val[0] == '/') {
+                listen_port = -1;
+                listen_socket = val;
+            } else {
+                listen_port = atoi(val);
+                listen_socket = NULL;
+            }
+        } else if (!strcmp(arg, "--listen-once")) {
+            listen_once = true;
         } else if (longoptarg(arg, "--hostkey", &val, &argc, &argv)) {
             Filename *keyfile;
             int keytype;
@@ -407,7 +581,7 @@ int main(int argc, char **argv)
             if (keytype == SSH_KEYTYPE_SSH2) {
                 ssh2_userkey *uk;
                 ssh_key *key;
-                uk = ssh2_load_userkey(keyfile, NULL, &error);
+                uk = ppk_load_f(keyfile, NULL, &error);
                 filename_free(keyfile);
                 if (!uk || !uk->key) {
                     fprintf(stderr, "%s: unable to load host key '%s': "
@@ -424,7 +598,7 @@ int main(int argc, char **argv)
                 sfree(uk->comment);
                 sfree(uk);
 
-                for (i = 0; i < nhostkeys; i++)
+                for (int i = 0; i < nhostkeys; i++)
                     if (ssh_key_alg(hostkeys[i]) == ssh_key_alg(key)) {
                         fprintf(stderr, "%s: host key '%s' duplicates key "
                                 "type %s\n", appname, val,
@@ -441,7 +615,7 @@ int main(int argc, char **argv)
                     exit(1);
                 }
                 hostkey1 = snew(RSAKey);
-                if (!rsa_ssh1_loadkey(keyfile, hostkey1, NULL, &error)) {
+                if (!rsa1_load_f(keyfile, hostkey1, NULL, &error)) {
                     fprintf(stderr, "%s: unable to load host key '%s': "
                             "%s\n", appname, val, error);
                     exit(1);
@@ -452,6 +626,34 @@ int main(int argc, char **argv)
                         key_type_to_str(keytype));
                 exit(1);
             }
+        } else if (longoptarg(arg, "--rsakexkey", &val, &argc, &argv)) {
+            Filename *keyfile;
+            int keytype;
+            const char *error;
+
+            keyfile = filename_from_str(val);
+            keytype = key_type(keyfile);
+
+            if (keytype != SSH_KEYTYPE_SSH1) {
+                fprintf(stderr, "%s: '%s' is not loadable as an SSH-1 format "
+                        "private key (%s)", appname, val,
+                        key_type_to_str(keytype));
+                exit(1);
+            }
+
+            if (ssc.rsa_kex_key) {
+                freersakey(ssc.rsa_kex_key);
+            } else {
+                ssc.rsa_kex_key = snew(RSAKey);
+            }
+
+            if (!rsa1_load_f(keyfile, ssc.rsa_kex_key, NULL, &error)) {
+                fprintf(stderr, "%s: unable to load RSA kex key '%s': "
+                        "%s\n", appname, val, error);
+                exit(1);
+            }
+
+            ssc.rsa_kex_key->sshk.vt = &ssh_rsa;
         } else if (longoptarg(arg, "--userkey", &val, &argc, &argv)) {
             Filename *keyfile;
             int keytype;
@@ -466,8 +668,8 @@ int main(int argc, char **argv)
                 struct AuthPolicy_ssh2_pubkey *node;
                 void *blob;
 
-                if (!ssh2_userkey_loadpub(keyfile, NULL, BinarySink_UPCAST(sb),
-                                          NULL, &error)) {
+                if (!ppk_loadpub_f(keyfile, NULL, BinarySink_UPCAST(sb),
+                                   NULL, &error)) {
                     fprintf(stderr, "%s: unable to load user key '%s': "
                             "%s\n", appname, val, error);
                     exit(1);
@@ -478,8 +680,8 @@ int main(int argc, char **argv)
                 memcpy(blob, sb->u, sb->len);
                 node->public_blob = make_ptrlen(blob, sb->len);
 
-                node->next = ap.ssh2keys;
-                ap.ssh2keys = node;
+                node->next = aps.ssh2keys;
+                aps.ssh2keys = node;
 
                 strbuf_free(sb);
             } else if (keytype == SSH_KEYTYPE_SSH1_PUBLIC) {
@@ -487,8 +689,8 @@ int main(int argc, char **argv)
                 BinarySource src[1];
                 struct AuthPolicy_ssh1_pubkey *node;
 
-                if (!rsa_ssh1_loadpub(keyfile, BinarySink_UPCAST(sb),
-                                      NULL, &error)) {
+                if (!rsa1_loadpub_f(keyfile, BinarySink_UPCAST(sb),
+                                    NULL, &error)) {
                     fprintf(stderr, "%s: unable to load user key '%s': "
                             "%s\n", appname, val, error);
                     exit(1);
@@ -498,8 +700,8 @@ int main(int argc, char **argv)
                 BinarySource_BARE_INIT(src, sb->u, sb->len);
                 get_rsa_ssh1_pub(src, &node->key, RSA_SSH1_EXPONENT_FIRST);
 
-                node->next = ap.ssh1keys;
-                ap.ssh1keys = node;
+                node->next = aps.ssh1keys;
+                aps.ssh1keys = node;
 
                 strbuf_free(sb);
             } else {
@@ -507,6 +709,64 @@ int main(int argc, char **argv)
                         "(%s)\n", appname, val, key_type_to_str(keytype));
                 exit(1);
             }
+        } else if (longoptarg(arg, "--bannerfile", &val, &argc, &argv)) {
+            FILE *fp = fopen(val, "r");
+            if (!fp) {
+                fprintf(stderr, "%s: %s: open: %s\n", appname,
+                        val, strerror(errno));
+                exit(1);
+            }
+            strbuf *sb = strbuf_new();
+            if (!read_file_into(BinarySink_UPCAST(sb), fp)) {
+                fprintf(stderr, "%s: %s: read: %s\n", appname,
+                        val, strerror(errno));
+                exit(1);
+            }
+            fclose(fp);
+            ssc.banner = ptrlen_from_strbuf(sb);
+        } else if (longoptarg(arg, "--bannertext", &val, &argc, &argv)) {
+            ssc.banner = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--sessiondir", &val, &argc, &argv)) {
+            ssc.session_starting_dir = val;
+        } else if (longoptarg(arg, "--kexinit-kex", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_KEX] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--kexinit-hostkey", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_HOSTKEY] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--kexinit-cscipher", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_CSCIPHER] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--kexinit-csmac", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_CSMAC] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--kexinit-cscomp", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_CSCOMP] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--kexinit-sccipher", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_SCCIPHER] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--kexinit-scmac", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_SCMAC] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--kexinit-sccomp", &val, &argc, &argv)) {
+            ssc.kex_override[KEXLIST_SCCOMP] = ptrlen_from_asciz(val);
+        } else if (longoptarg(arg, "--ssh1-ciphers", &val, &argc, &argv)) {
+            ptrlen list = ptrlen_from_asciz(val);
+            ptrlen word;
+            unsigned long mask = 0;
+            while (word = ptrlen_get_word(&list, ","), word.len != 0) {
+
+#define SSH1_CIPHER_CASE(bitpos, name)                  \
+                if (ptrlen_eq_string(word, name)) {     \
+                    mask |= 1U << bitpos;               \
+                    continue;                           \
+                }
+                SSH1_SUPPORTED_CIPHER_LIST(SSH1_CIPHER_CASE);
+#undef SSH1_CIPHER_CASE
+
+                fprintf(stderr, "%s: unrecognised SSH-1 cipher '%.*s'\n",
+                        appname, PTRLEN_PRINTF(word));
+                exit(1);
+            }
+            ssc.ssh1_cipher_mask = mask;
+        } else if (longoptnoarg(arg, "--ssh1-no-compression")) {
+            ssc.ssh1_allow_compression = false;
+        } else if (longoptnoarg(arg, "--exitsignum")) {
+            ssc.exit_signal_numeric = true;
         } else if (longoptarg(arg, "--sshlog", &val, &argc, &argv) ||
                    longoptarg(arg, "-sshlog", &val, &argc, &argv)) {
             Filename *logfile = filename_from_str(val);
@@ -521,6 +781,10 @@ int main(int argc, char **argv)
             filename_free(logfile);
             conf_set_int(conf, CONF_logtype, LGTYP_SSHRAW);
             conf_set_int(conf, CONF_logxfovr, LGXF_OVR);
+        } else if (!strcmp(arg, "--pretend-to-accept-any-pubkey")) {
+            ssc.stunt_pretend_to_accept_any_pubkey = true;
+        } else if (!strcmp(arg, "--open-unconditional-agent-socket")) {
+            ssc.stunt_open_unconditional_agent_socket = true;
         } else {
             fprintf(stderr, "%s: unrecognised option '%s'\n", appname, arg);
             exit(1);
@@ -531,9 +795,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "%s: specify at least one host key\n", appname);
         exit(1);
     }
-
-    fdlist = NULL;
-    fdsize = 0;
 
     random_ref();
 
@@ -546,97 +807,44 @@ int main(int argc, char **argv)
     sk_init();
     uxsel_init();
 
-    {
-        Plug *plug = ssh_server_plug(
-            conf, hostkeys, nhostkeys, hostkey1, &ap, server_logpolicy,
-            &unix_live_sftpserver_vt);
-        ssh_server_start(plug, make_fd_socket(0, 1, -1, plug));
-    }
+    struct server_config scfg;
+    scfg.conf = conf;
+    scfg.ssc = &ssc;
+    scfg.hostkeys = hostkeys;
+    scfg.nhostkeys = nhostkeys;
+    scfg.hostkey1 = hostkey1;
+    scfg.ap_shared = &aps;
+    scfg.next_id = 0;
 
-    now = GETTICKCOUNT();
-
-    pollwrapper *pw = pollwrap_new();
-    while (!finished) {
-	int rwx;
-	int ret;
-        unsigned long next;
-
-        pollwrap_clear(pw);
-
-	/* Count the currently active fds. */
-	i = 0;
-	for (fd = first_fd(&fdstate, &rwx); fd >= 0;
-	     fd = next_fd(&fdstate, &rwx)) i++;
-
-	/* Expand the fdlist buffer if necessary. */
-        sgrowarray(fdlist, fdsize, i);
-
-	/*
-	 * Add all currently open fds to the select sets, and store
-	 * them in fdlist as well.
-	 */
-	int fdcount = 0;
-	for (fd = first_fd(&fdstate, &rwx); fd >= 0;
-	     fd = next_fd(&fdstate, &rwx)) {
-	    fdlist[fdcount++] = fd;
-            pollwrap_add_fd_rwx(pw, fd, rwx);
-	}
-
-        if (toplevel_callback_pending()) {
-            ret = pollwrap_poll_instant(pw);
-        } else if (run_timers(now, &next)) {
-            do {
-                unsigned long then;
-                long ticks;
-
-		then = now;
-		now = GETTICKCOUNT();
-		if (now - then > next - then)
-		    ticks = 0;
-		else
-		    ticks = next - now;
-
-                bool overflow = false;
-                if (ticks > INT_MAX) {
-                    ticks = INT_MAX;
-                    overflow = true;
-                }
-
-                ret = pollwrap_poll_timeout(pw, ticks);
-                if (ret == 0 && !overflow)
-                    now = next;
-                else
-                    now = GETTICKCOUNT();
-            } while (ret < 0 && errno == EINTR);
+    if (listen_port >= 0 || listen_socket) {
+        listening = true;
+        scfg.listening_plug.vt = &server_plugvt;
+        char *msg;
+        if (listen_port >= 0) {
+            scfg.listening_socket = sk_newlistener(
+                NULL, listen_port, &scfg.listening_plug, true,
+                ADDRTYPE_UNSPEC);
+            msg = dupprintf("%s: listening on port %d",
+                            appname, listen_port);
         } else {
-            ret = pollwrap_poll_endless(pw);
+            SockAddr *addr = unix_sock_addr(listen_socket);
+            scfg.listening_socket = new_unix_listener(
+                addr, &scfg.listening_plug);
+            msg = dupprintf("%s: listening on Unix socket %s",
+                            appname, listen_socket);
         }
 
-        if (ret < 0 && errno == EINTR)
-            continue;
-
-	if (ret < 0) {
-	    perror("poll");
-	    exit(1);
-	}
-
-	for (i = 0; i < fdcount; i++) {
-	    fd = fdlist[i];
-            int rwx = pollwrap_get_fd_rwx(pw, fd);
-            /*
-             * We must process exceptional notifications before
-             * ordinary readability ones, or we may go straight
-             * past the urgent marker.
-             */
-	    if (rwx & SELECT_X)
-		select_result(fd, SELECT_X);
-	    if (rwx & SELECT_R)
-		select_result(fd, SELECT_R);
-	    if (rwx & SELECT_W)
-		select_result(fd, SELECT_W);
-	}
-
-        run_toplevel_callbacks();
+        log_to_stderr(-1, msg);
+        sfree(msg);
+    } else {
+        struct server_instance *inst;
+        Plug *plug = server_conn_plug(&scfg, &inst);
+        ssh_server_start(plug, make_fd_socket(0, 1, -1, plug));
+        log_to_stderr(inst->id, "speaking SSH on stdio");
     }
-    exit(0);
+
+    cli_main_loop(cliloop_no_pw_setup, cliloop_no_pw_check,
+                  cliloop_always_continue, NULL);
+
+    return 0;
 }

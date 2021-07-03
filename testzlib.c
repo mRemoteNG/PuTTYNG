@@ -24,6 +24,11 @@ void out_of_memory(void)
     exit(1);
 }
 
+void dputs(const char *buf)
+{
+    fputs(buf, stderr);
+}
+
 int main(int argc, char **argv)
 {
     unsigned char buf[16], *outbuf;
@@ -85,10 +90,10 @@ int main(int argc, char **argv)
     }
 
     while (1) {
-	ret = fread(buf, 1, sizeof(buf), fp);
-	if (ret <= 0)
-	    break;
-	ssh_decompressor_decompress(handle, buf, ret, &outbuf, &outlen);
+        ret = fread(buf, 1, sizeof(buf), fp);
+        if (ret <= 0)
+            break;
+        ssh_decompressor_decompress(handle, buf, ret, &outbuf, &outlen);
         if (outbuf) {
             if (outlen)
                 fwrite(outbuf, 1, outlen, stdout);

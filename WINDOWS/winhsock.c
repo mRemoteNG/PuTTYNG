@@ -51,11 +51,11 @@ static size_t handle_gotdata(
     HandleSocket *hs = (HandleSocket *)handle_get_privdata(h);
 
     if (err) {
-	plug_closing(hs->plug, "Read error from handle", 0, 0);
-	return 0;
+        plug_closing(hs->plug, "Read error from handle", 0, 0);
+        return 0;
     } else if (len == 0) {
-	plug_closing(hs->plug, NULL, 0, 0);
-	return 0;
+        plug_closing(hs->plug, NULL, 0, 0);
+        return 0;
     } else {
         assert(hs->frozen != FROZEN && hs->frozen != THAWING);
         if (hs->frozen == FREEZING) {
@@ -75,7 +75,7 @@ static size_t handle_gotdata(
             return INT_MAX;
         } else {
             plug_receive(hs->plug, 0, data, len);
-	    return 0;
+            return 0;
         }
     }
 }
@@ -108,7 +108,7 @@ static Plug *sk_handle_plug(Socket *s, Plug *p)
     HandleSocket *hs = container_of(s, HandleSocket, sock);
     Plug *ret = hs->plug;
     if (p)
-	hs->plug = p;
+        hs->plug = p;
     return ret;
 }
 
@@ -127,6 +127,8 @@ static void sk_handle_close(Socket *s)
     if (hs->recv_H != hs->send_H)
         CloseHandle(hs->recv_H);
     bufchain_clear(&hs->inputdata);
+
+    delete_callbacks_for_context(hs);
 
     sfree(hs);
 }
@@ -152,12 +154,6 @@ static void sk_handle_write_eof(Socket *s)
     HandleSocket *hs = container_of(s, HandleSocket, sock);
 
     handle_write_eof(hs->send_h);
-}
-
-static void sk_handle_flush(Socket *s)
-{
-    /* HandleSocket *hs = container_of(s, HandleSocket, sock); */
-    /* do nothing */
 }
 
 static void handle_socket_unfreeze(void *hsv)
@@ -276,7 +272,7 @@ static SocketPeerInfo *sk_handle_peer_info(Socket *s)
 
     if (!kernel32_module) {
         kernel32_module = load_system32_dll("kernel32.dll");
-#if (defined _MSC_VER && _MSC_VER < 1900) || defined __MINGW32__ || defined COVERITY
+#if (defined _MSC_VER && _MSC_VER < 1900) || defined __MINGW32__
         /* For older Visual Studio, and MinGW too (at least as of
          * Ubuntu 16.04), this function isn't available in the header
          * files to type-check. Ditto the toolchain I use for
@@ -308,15 +304,14 @@ static SocketPeerInfo *sk_handle_peer_info(Socket *s)
 }
 
 static const SocketVtable HandleSocket_sockvt = {
-    sk_handle_plug,
-    sk_handle_close,
-    sk_handle_write,
-    sk_handle_write_oob,
-    sk_handle_write_eof,
-    sk_handle_flush,
-    sk_handle_set_frozen,
-    sk_handle_socket_error,
-    sk_handle_peer_info,
+    .plug = sk_handle_plug,
+    .close = sk_handle_close,
+    .write = sk_handle_write,
+    .write_oob = sk_handle_write_oob,
+    .write_eof = sk_handle_write_eof,
+    .set_frozen = sk_handle_set_frozen,
+    .socket_error = sk_handle_socket_error,
+    .peer_info = sk_handle_peer_info,
 };
 
 Socket *make_handle_socket(HANDLE send_H, HANDLE recv_H, HANDLE stderr_H,

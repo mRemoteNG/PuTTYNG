@@ -9,8 +9,8 @@
 #include "puttymem.h"
 #include "marshal.h"
 
-#include <stdio.h>		       /* for FILE * */
-#include <stdarg.h>		       /* for va_list */
+#include <stdio.h>                     /* for FILE * */
+#include <stdarg.h>                    /* for va_list */
 #include <stdlib.h>                    /* for abort */
 #include <time.h>                      /* for struct tm */
 #include <limits.h>                    /* for INT_MAX/MIN */
@@ -25,12 +25,9 @@ char *host_strrchr(const char *s, int c);
 char *host_strduptrim(const char *s);
 
 char *dupstr(const char *s);
-char *dupcat(const char *s1, ...);
-char *dupprintf(const char *fmt, ...)
-#ifdef __GNUC__
-    __attribute__ ((format (printf, 1, 2)))
-#endif
-    ;
+char *dupcat_fn(const char *s1, ...);
+#define dupcat(...) dupcat_fn(__VA_ARGS__, (const char *)NULL)
+char *dupprintf(const char *fmt, ...) PRINTF_LIKE(1, 2);
 char *dupvprintf(const char *fmt, va_list ap);
 void burnstr(char *string);
 
@@ -56,9 +53,13 @@ strbuf *strbuf_new_nm(void);
 
 void strbuf_free(strbuf *buf);
 void *strbuf_append(strbuf *buf, size_t len);
+void strbuf_shrink_to(strbuf *buf, size_t new_len);
+void strbuf_shrink_by(strbuf *buf, size_t amount_to_remove);
 char *strbuf_to_str(strbuf *buf); /* does free buf, but you must free result */
-void strbuf_catf(strbuf *buf, const char *fmt, ...);
+void strbuf_catf(strbuf *buf, const char *fmt, ...) PRINTF_LIKE(2, 3);
 void strbuf_catfv(strbuf *buf, const char *fmt, va_list ap);
+static inline void strbuf_clear(strbuf *buf) { strbuf_shrink_to(buf, 0); }
+bool strbuf_chomp(strbuf *buf, char char_to_remove);
 
 strbuf *strbuf_new_for_agent_query(void);
 void strbuf_finalise_agent_query(strbuf *buf);
@@ -97,6 +98,7 @@ static inline int toint(unsigned u)
 }
 
 char *fgetline(FILE *fp);
+bool read_file_into(BinarySink *bs, FILE *fp);
 char *chomp(char *str);
 bool strstartswith(const char *s, const char *t);
 bool strendswith(const char *s, const char *t);
@@ -168,8 +170,14 @@ static inline ptrlen ptrlen_from_strbuf(strbuf *sb)
 bool ptrlen_eq_string(ptrlen pl, const char *str);
 bool ptrlen_eq_ptrlen(ptrlen pl1, ptrlen pl2);
 int ptrlen_strcmp(ptrlen pl1, ptrlen pl2);
+/* ptrlen_startswith and ptrlen_endswith write through their 'tail'
+ * argument if and only if it is non-NULL and they return true. Hence
+ * you can write ptrlen_startswith(thing, prefix, &thing), writing
+ * back to the same ptrlen it read from, to remove a prefix if present
+ * and say whether it did so. */
 bool ptrlen_startswith(ptrlen whole, ptrlen prefix, ptrlen *tail);
 bool ptrlen_endswith(ptrlen whole, ptrlen suffix, ptrlen *tail);
+ptrlen ptrlen_get_word(ptrlen *input, const char *separators);
 char *mkstr(ptrlen pl);
 int string_length_for_printf(size_t);
 /* Derive two printf arguments from a ptrlen, suitable for "%.*s" */
@@ -181,6 +189,10 @@ int string_length_for_printf(size_t);
  * string. */
 #define PTRLEN_LITERAL(stringlit) \
     TYPECHECK("" stringlit "", make_ptrlen(stringlit, sizeof(stringlit)-1))
+/* Make a ptrlen out of a compile-time string literal in a way that
+ * allows you to declare the ptrlen itself as a compile-time initialiser. */
+#define PTRLEN_DECL_LITERAL(stringlit) \
+    { TYPECHECK("" stringlit "", stringlit), sizeof(stringlit)-1 }
 /* Make a ptrlen out of a constant byte array. */
 #define PTRLEN_FROM_CONST_BYTES(a) make_ptrlen(a, sizeof(a))
 
@@ -202,6 +214,9 @@ bool smemeq(const void *av, const void *bv, size_t len);
  * (such as things in the surrogate range, or > 0x10FFFF) have already
  * been removed. */
 size_t encode_utf8(void *output, unsigned long ch);
+
+/* Write a string out in C string-literal format. */
+void write_c_string_literal(FILE *fp, ptrlen str);
 
 char *buildinfo(const char *newline);
 
@@ -235,7 +250,7 @@ static inline NORETURN void unreachable_internal(void) { abort(); }
  */
 
 #ifdef DEBUG
-void debug_printf(const char *fmt, ...);
+void debug_printf(const char *fmt, ...) PRINTF_LIKE(1, 2);
 void debug_memdump(const void *buf, int len, bool L);
 #define debug(...) (debug_printf(__VA_ARGS__))
 #define dmemdump(buf,len) (debug_memdump(buf, len, false))
@@ -269,14 +284,14 @@ static inline uint64_t GET_64BIT_LSB_FIRST(const void *vp)
 static inline void PUT_64BIT_LSB_FIRST(void *vp, uint64_t value)
 {
     uint8_t *p = (uint8_t *)vp;
-    p[0] = value;
-    p[1] = (value) >> 8;
-    p[2] = (value) >> 16;
-    p[3] = (value) >> 24;
-    p[4] = (value) >> 32;
-    p[5] = (value) >> 40;
-    p[6] = (value) >> 48;
-    p[7] = (value) >> 56;
+    p[0] = (uint8_t)(value);
+    p[1] = (uint8_t)(value >> 8);
+    p[2] = (uint8_t)(value >> 16);
+    p[3] = (uint8_t)(value >> 24);
+    p[4] = (uint8_t)(value >> 32);
+    p[5] = (uint8_t)(value >> 40);
+    p[6] = (uint8_t)(value >> 48);
+    p[7] = (uint8_t)(value >> 56);
 }
 
 static inline uint32_t GET_32BIT_LSB_FIRST(const void *vp)
@@ -289,10 +304,10 @@ static inline uint32_t GET_32BIT_LSB_FIRST(const void *vp)
 static inline void PUT_32BIT_LSB_FIRST(void *vp, uint32_t value)
 {
     uint8_t *p = (uint8_t *)vp;
-    p[0] = value;
-    p[1] = (value) >> 8;
-    p[2] = (value) >> 16;
-    p[3] = (value) >> 24;
+    p[0] = (uint8_t)(value);
+    p[1] = (uint8_t)(value >> 8);
+    p[2] = (uint8_t)(value >> 16);
+    p[3] = (uint8_t)(value >> 24);
 }
 
 static inline uint16_t GET_16BIT_LSB_FIRST(const void *vp)
@@ -304,8 +319,8 @@ static inline uint16_t GET_16BIT_LSB_FIRST(const void *vp)
 static inline void PUT_16BIT_LSB_FIRST(void *vp, uint16_t value)
 {
     uint8_t *p = (uint8_t *)vp;
-    p[0] = value;
-    p[1] = (value) >> 8;
+    p[0] = (uint8_t)(value);
+    p[1] = (uint8_t)(value >> 8);
 }
 
 static inline uint64_t GET_64BIT_MSB_FIRST(const void *vp)
@@ -320,14 +335,14 @@ static inline uint64_t GET_64BIT_MSB_FIRST(const void *vp)
 static inline void PUT_64BIT_MSB_FIRST(void *vp, uint64_t value)
 {
     uint8_t *p = (uint8_t *)vp;
-    p[7] = value;
-    p[6] = (value) >> 8;
-    p[5] = (value) >> 16;
-    p[4] = (value) >> 24;
-    p[3] = (value) >> 32;
-    p[2] = (value) >> 40;
-    p[1] = (value) >> 48;
-    p[0] = (value) >> 56;
+    p[7] = (uint8_t)(value);
+    p[6] = (uint8_t)(value >> 8);
+    p[5] = (uint8_t)(value >> 16);
+    p[4] = (uint8_t)(value >> 24);
+    p[3] = (uint8_t)(value >> 32);
+    p[2] = (uint8_t)(value >> 40);
+    p[1] = (uint8_t)(value >> 48);
+    p[0] = (uint8_t)(value >> 56);
 }
 
 static inline uint32_t GET_32BIT_MSB_FIRST(const void *vp)
@@ -340,10 +355,10 @@ static inline uint32_t GET_32BIT_MSB_FIRST(const void *vp)
 static inline void PUT_32BIT_MSB_FIRST(void *vp, uint32_t value)
 {
     uint8_t *p = (uint8_t *)vp;
-    p[3] = value;
-    p[2] = (value) >> 8;
-    p[1] = (value) >> 16;
-    p[0] = (value) >> 24;
+    p[3] = (uint8_t)(value);
+    p[2] = (uint8_t)(value >> 8);
+    p[1] = (uint8_t)(value >> 16);
+    p[0] = (uint8_t)(value >> 24);
 }
 
 static inline uint16_t GET_16BIT_MSB_FIRST(const void *vp)
@@ -355,8 +370,8 @@ static inline uint16_t GET_16BIT_MSB_FIRST(const void *vp)
 static inline void PUT_16BIT_MSB_FIRST(void *vp, uint16_t value)
 {
     uint8_t *p = (uint8_t *)vp;
-    p[1] = value;
-    p[0] = (value) >> 8;
+    p[1] = (uint8_t)(value);
+    p[0] = (uint8_t)(value >> 8);
 }
 
 /* Replace NULL with the empty string, permitting an idiom in which we
@@ -393,5 +408,35 @@ static inline char *stripctrl_string(StripCtrlChars *sccpub, const char *str)
 {
     return stripctrl_string_ptrlen(sccpub, ptrlen_from_asciz(str));
 }
+
+/*
+ * A mechanism for loading a file from disk into a memory buffer where
+ * it can be picked apart as a BinarySource.
+ */
+struct LoadedFile {
+    char *data;
+    size_t len, max_size;
+    BinarySource_IMPLEMENTATION;
+};
+typedef enum {
+    LF_OK,      /* file loaded successfully */
+    LF_TOO_BIG, /* file didn't fit in buffer */
+    LF_ERROR,   /* error from stdio layer */
+} LoadFileStatus;
+LoadedFile *lf_new(size_t max_size);
+void lf_free(LoadedFile *lf);
+LoadFileStatus lf_load_fp(LoadedFile *lf, FILE *fp);
+LoadFileStatus lf_load(LoadedFile *lf, const Filename *filename);
+static inline ptrlen ptrlen_from_lf(LoadedFile *lf)
+{ return make_ptrlen(lf->data, lf->len); }
+
+/* Set the memory block of 'size' bytes at 'out' to the bitwise XOR of
+ * the two blocks of the same size at 'in1' and 'in2'.
+ *
+ * 'out' may point to exactly the same address as one of the inputs,
+ * but if the input and output blocks overlap in any other way, the
+ * result of this function is not guaranteed. No memmove-style effort
+ * is made to handle difficult overlap cases. */
+void memxor(uint8_t *out, const uint8_t *in1, const uint8_t *in2, size_t size);
 
 #endif

@@ -1,3 +1,6 @@
+/* On some systems this is needed to get poll.h to define eg.. POLLRDNORM */
+#define _XOPEN_SOURCE
+
 #include <poll.h>
 
 #include "putty.h"
@@ -72,6 +75,21 @@ void pollwrap_add_fd_events(pollwrapper *pw, int fd, int events)
     pw->fds[f2p->pos].events |= events;
 }
 
+/* Omit any of the POLL{RD,WR}{NORM,BAND} flag values that are still
+ * not defined by poll.h, just in case */
+#ifndef POLLRDNORM
+#define POLLRDNORM 0
+#endif
+#ifndef POLLRDBAND
+#define POLLRDBAND 0
+#endif
+#ifndef POLLWRNORM
+#define POLLWRNORM 0
+#endif
+#ifndef POLLWRBAND
+#define POLLWRBAND 0
+#endif
+
 #define SELECT_R_IN (POLLIN  | POLLRDNORM | POLLRDBAND)
 #define SELECT_W_IN (POLLOUT | POLLWRNORM | POLLWRBAND)
 #define SELECT_X_IN (POLLPRI)
@@ -108,29 +126,44 @@ int pollwrap_poll_timeout(pollwrapper *pw, int milliseconds)
     return poll(pw->fds, pw->nfd, milliseconds);
 }
 
-int pollwrap_get_fd_events(pollwrapper *pw, int fd)
+static void pollwrap_get_fd_events_revents(pollwrapper *pw, int fd,
+                                           int *events_p, int *revents_p)
 {
     pollwrap_fdtopos *f2p, f2p_find;
+    int events = 0, revents = 0;
 
     assert(fd >= 0);
 
     f2p_find.fd = fd;
     f2p = find234(pw->fdtopos, &f2p_find, NULL);
-    if (!f2p)
-        return 0;
+    if (f2p) {
+        events = pw->fds[f2p->pos].events;
+        revents = pw->fds[f2p->pos].revents;
+    }
 
-    return pw->fds[f2p->pos].revents;
+    if (events_p)
+        *events_p = events;
+    if (revents_p)
+        *revents_p = revents;
+}
+
+int pollwrap_get_fd_events(pollwrapper *pw, int fd)
+{
+    int revents;
+    pollwrap_get_fd_events_revents(pw, fd, NULL, &revents);
+    return revents;
 }
 
 int pollwrap_get_fd_rwx(pollwrapper *pw, int fd)
 {
-    int revents = pollwrap_get_fd_events(pw, fd);
+    int events, revents;
+    pollwrap_get_fd_events_revents(pw, fd, &events, &revents);
     int rwx = 0;
-    if (revents & SELECT_R_OUT)
+    if ((events & POLLIN) && (revents & SELECT_R_OUT))
         rwx |= SELECT_R;
-    if (revents & SELECT_W_OUT)
+    if ((events & POLLOUT) && (revents & SELECT_W_OUT))
         rwx |= SELECT_W;
-    if (revents & SELECT_X_OUT)
+    if ((events & POLLPRI) && (revents & SELECT_X_OUT))
         rwx |= SELECT_X;
     return rwx;
 }

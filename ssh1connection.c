@@ -19,15 +19,15 @@ static int ssh1_rportfwd_cmp(void *av, void *bv)
     struct ssh_rportfwd *b = (struct ssh_rportfwd *) bv;
     int i;
     if ( (i = strcmp(a->dhost, b->dhost)) != 0)
-	return i < 0 ? -1 : +1;
+        return i < 0 ? -1 : +1;
     if (a->dport > b->dport)
-	return +1;
+        return +1;
     if (a->dport < b->dport)
-	return -1;
+        return -1;
     return 0;
 }
 
-static void ssh1_connection_free(PacketProtocolLayer *); 
+static void ssh1_connection_free(PacketProtocolLayer *);
 static void ssh1_connection_process_queue(PacketProtocolLayer *);
 static void ssh1_connection_special_cmd(PacketProtocolLayer *ppl,
                                         SessionSpecialCode code, int arg);
@@ -35,15 +35,16 @@ static bool ssh1_connection_want_user_input(PacketProtocolLayer *ppl);
 static void ssh1_connection_got_user_input(PacketProtocolLayer *ppl);
 static void ssh1_connection_reconfigure(PacketProtocolLayer *ppl, Conf *conf);
 
-static const struct PacketProtocolLayerVtable ssh1_connection_vtable = {
-    ssh1_connection_free,
-    ssh1_connection_process_queue,
-    ssh1_common_get_specials,
-    ssh1_connection_special_cmd,
-    ssh1_connection_want_user_input,
-    ssh1_connection_got_user_input,
-    ssh1_connection_reconfigure,
-    NULL /* no layer names in SSH-1 */,
+static const PacketProtocolLayerVtable ssh1_connection_vtable = {
+    .free = ssh1_connection_free,
+    .process_queue = ssh1_connection_process_queue,
+    .get_specials = ssh1_common_get_specials,
+    .special_cmd = ssh1_connection_special_cmd,
+    .want_user_input = ssh1_connection_want_user_input,
+    .got_user_input = ssh1_connection_got_user_input,
+    .reconfigure = ssh1_connection_reconfigure,
+    .queued_data_size = ssh_ppl_default_queued_data_size,
+    .name = NULL, /* no layer names in SSH-1 */
 };
 
 static void ssh1_rportfwd_remove(
@@ -61,34 +62,26 @@ static void ssh1_throttle_all_channels(ConnectionLayer *cl, bool throttled);
 static bool ssh1_ldisc_option(ConnectionLayer *cl, int option);
 static void ssh1_set_ldisc_option(ConnectionLayer *cl, int option, bool value);
 static void ssh1_enable_x_fwd(ConnectionLayer *cl);
-static void ssh1_enable_agent_fwd(ConnectionLayer *cl);
 static void ssh1_set_wants_user_input(ConnectionLayer *cl, bool wanted);
 
-static const struct ConnectionLayerVtable ssh1_connlayer_vtable = {
-    ssh1_rportfwd_alloc,
-    ssh1_rportfwd_remove,
-    ssh1_lportfwd_open,
-    ssh1_session_open,
-    ssh1_serverside_x11_open,
-    ssh1_serverside_agent_open,
-    ssh1_add_x11_display,
-    NULL /* add_sharing_x11_display */,
-    NULL /* remove_sharing_x11_display */,
-    NULL /* send_packet_from_downstream */,
-    NULL /* alloc_sharing_channel */,
-    NULL /* delete_sharing_channel */,
-    NULL /* sharing_queue_global_request */,
-    NULL /* sharing_no_more_downstreams */,
-    ssh1_agent_forwarding_permitted,
-    ssh1_terminal_size,
-    ssh1_stdout_unthrottle,
-    ssh1_stdin_backlog,
-    ssh1_throttle_all_channels,
-    ssh1_ldisc_option,
-    ssh1_set_ldisc_option,
-    ssh1_enable_x_fwd,
-    ssh1_enable_agent_fwd,
-    ssh1_set_wants_user_input,
+static const ConnectionLayerVtable ssh1_connlayer_vtable = {
+    .rportfwd_alloc = ssh1_rportfwd_alloc,
+    .rportfwd_remove = ssh1_rportfwd_remove,
+    .lportfwd_open = ssh1_lportfwd_open,
+    .session_open = ssh1_session_open,
+    .serverside_x11_open = ssh1_serverside_x11_open,
+    .serverside_agent_open = ssh1_serverside_agent_open,
+    .add_x11_display = ssh1_add_x11_display,
+    .agent_forwarding_permitted = ssh1_agent_forwarding_permitted,
+    .terminal_size = ssh1_terminal_size,
+    .stdout_unthrottle = ssh1_stdout_unthrottle,
+    .stdin_backlog = ssh1_stdin_backlog,
+    .throttle_all_channels = ssh1_throttle_all_channels,
+    .ldisc_option = ssh1_ldisc_option,
+    .set_ldisc_option = ssh1_set_ldisc_option,
+    .enable_x_fwd = ssh1_enable_x_fwd,
+    .set_wants_user_input = ssh1_set_wants_user_input,
+    /* other methods are NULL */
 };
 
 static size_t ssh1channel_write(
@@ -99,28 +92,14 @@ static void ssh1channel_unthrottle(SshChannel *c, size_t bufsize);
 static Conf *ssh1channel_get_conf(SshChannel *c);
 static void ssh1channel_window_override_removed(SshChannel *c) { /* ignore */ }
 
-static const struct SshChannelVtable ssh1channel_vtable = {
-    ssh1channel_write,
-    ssh1channel_write_eof,
-    ssh1channel_initiate_close,
-    ssh1channel_unthrottle,
-    ssh1channel_get_conf,
-    ssh1channel_window_override_removed,
-    NULL /* x11_sharing_handover is only used by SSH-2 connection sharing */,
-    NULL /* send_exit_status */,
-    NULL /* send_exit_signal */,
-    NULL /* send_exit_signal_numeric */,
-    NULL /* request_x11_forwarding */,
-    NULL /* request_agent_forwarding */,
-    NULL /* request_pty */,
-    NULL /* send_env_var */,
-    NULL /* start_shell */,
-    NULL /* start_command */,
-    NULL /* start_subsystem */,
-    NULL /* send_serial_break */,
-    NULL /* send_signal */,
-    NULL /* send_terminal_size_change */,
-    NULL /* hint_channel_is_simple */,
+static const SshChannelVtable ssh1channel_vtable = {
+    .write = ssh1channel_write,
+    .write_eof = ssh1channel_write_eof,
+    .initiate_close = ssh1channel_initiate_close,
+    .unthrottle = ssh1channel_unthrottle,
+    .get_conf = ssh1channel_get_conf,
+    .window_override_removed = ssh1channel_window_override_removed,
+    /* everything else is NULL */
 };
 
 static void ssh1_channel_try_eof(struct ssh1_channel *c);
@@ -134,9 +113,9 @@ static int ssh1_channelcmp(void *av, void *bv)
     const struct ssh1_channel *a = (const struct ssh1_channel *) av;
     const struct ssh1_channel *b = (const struct ssh1_channel *) bv;
     if (a->localid < b->localid)
-	return -1;
+        return -1;
     if (a->localid > b->localid)
-	return +1;
+        return +1;
     return 0;
 }
 
@@ -145,9 +124,9 @@ static int ssh1_channelfind(void *av, void *bv)
     const unsigned *a = (const unsigned *) av;
     const struct ssh1_channel *b = (const struct ssh1_channel *) bv;
     if (*a < b->localid)
-	return -1;
+        return -1;
     if (*a > b->localid)
-	return +1;
+        return +1;
     return 0;
 }
 
@@ -197,9 +176,11 @@ static void ssh1_connection_free(PacketProtocolLayer *ppl)
     while ((c = delpos234(s->channels, 0)) != NULL)
         ssh1_channel_free(c);
     freetree234(s->channels);
+    if (s->mainchan_chan)
+        chan_free(s->mainchan_chan);
 
     if (s->x11disp)
-	x11_free_display(s->x11disp);
+        x11_free_display(s->x11disp);
     while ((auth = delpos234(s->x11authtree, 0)) != NULL)
         x11_free_fake_auth(auth);
     freetree234(s->x11authtree);
@@ -208,6 +189,9 @@ static void ssh1_connection_free(PacketProtocolLayer *ppl)
         free_rportfwd(rpf);
     freetree234(s->rportfwds);
     portfwdmgr_free(s->portfwdmgr);
+
+    if (s->antispoof_prompt)
+        free_prompts(s->antispoof_prompt);
 
     delete_callbacks_for_context(s);
 
@@ -265,7 +249,7 @@ static bool ssh1_connection_filter_queue(struct ssh1_connection_state *s)
                     localid);
                 return true;
             }
- 
+
             switch (pktin->type) {
               case SSH1_MSG_CHANNEL_OPEN_CONFIRMATION:
                 assert(c->halfopen);
@@ -376,6 +360,42 @@ static void ssh1_connection_process_queue(PacketProtocolLayer *ppl)
 
     crBegin(s->crState);
 
+    /*
+     * Signal the seat that authentication is done, so that it can
+     * deploy spoofing defences. If it doesn't have any, deploy our
+     * own fallback one.
+     *
+     * We do this here rather than at the end of userauth, because we
+     * might not have gone through userauth at all (if we're a
+     * connection-sharing downstream).
+     */
+    if (ssh1_connection_need_antispoof_prompt(s)) {
+        s->antispoof_prompt = new_prompts();
+        s->antispoof_prompt->to_server = true;
+        s->antispoof_prompt->from_server = false;
+        s->antispoof_prompt->name = dupstr("Authentication successful");
+        add_prompt(
+            s->antispoof_prompt,
+            dupstr("Access granted. Press Return to begin session. "), false);
+        s->antispoof_ret = seat_get_userpass_input(
+            s->ppl.seat, s->antispoof_prompt, NULL);
+        while (1) {
+            while (s->antispoof_ret < 0 &&
+                   bufchain_size(s->ppl.user_input) > 0)
+                s->antispoof_ret = seat_get_userpass_input(
+                    s->ppl.seat, s->antispoof_prompt, s->ppl.user_input);
+
+            if (s->antispoof_ret >= 0)
+                break;
+
+            s->want_user_input = true;
+            crReturnV;
+            s->want_user_input = false;
+        }
+        free_prompts(s->antispoof_prompt);
+        s->antispoof_prompt = NULL;
+    }
+
     portfwdmgr_config(s->portfwdmgr, s->conf);
     s->portfwdmgr_configured = true;
 
@@ -386,19 +406,19 @@ static void ssh1_connection_process_queue(PacketProtocolLayer *ppl)
 
     while (1) {
 
-	/*
-	 * By this point, most incoming packets are already being
-	 * handled by filter_queue, and we need only pay attention to
-	 * the unusual ones.
-	 */
+        /*
+         * By this point, most incoming packets are already being
+         * handled by filter_queue, and we need only pay attention to
+         * the unusual ones.
+         */
 
-	if ((pktin = ssh1_connection_pop(s)) != NULL) {
+        if ((pktin = ssh1_connection_pop(s)) != NULL) {
             ssh_proto_error(s->ppl.ssh, "Unexpected packet received, "
                             "type %d (%s)", pktin->type,
                             ssh1_pkt_type(pktin->type));
             return;
-	}
-	crReturnV;
+        }
+        crReturnV;
     }
 
     crFinishV;
@@ -421,7 +441,7 @@ static void ssh1_channel_check_close(struct ssh1_channel *c)
     if ((!((CLOSES_SENT_CLOSE | CLOSES_RCVD_CLOSE) & ~c->closes) ||
          chan_want_close(c->chan, (c->closes & CLOSES_SENT_CLOSE),
                          (c->closes & CLOSES_RCVD_CLOSE))) &&
-	!(c->closes & CLOSES_SENT_CLOSECONF)) {
+        !(c->closes & CLOSES_SENT_CLOSECONF)) {
         /*
          * We have both sent and received CLOSE (or the channel type
          * doesn't need us to), which means the channel is in final
@@ -479,10 +499,12 @@ static void ssh1_channel_close_local(struct ssh1_channel *c,
 {
     struct ssh1_connection_state *s = c->connlayer;
     PacketProtocolLayer *ppl = &s->ppl; /* for ppl_logevent */
-    const char *msg = chan_log_close_msg(c->chan);
+    char *msg = chan_log_close_msg(c->chan);
 
-    if (msg != NULL)
+    if (msg != NULL) {
         ppl_logevent("%s%s%s", msg, reason ? " " : "", reason ? reason : "");
+        sfree(msg);
+    }
 
     chan_free(c->chan);
     c->chan = zombiechan_new();
@@ -584,8 +606,8 @@ static void ssh1channel_unthrottle(SshChannel *sc, size_t bufsize)
     struct ssh1_connection_state *s = c->connlayer;
 
     if (c->throttling_conn && bufsize <= SSH1_BUFFER_LIMIT) {
-	c->throttling_conn = false;
-	ssh_throttle_conn(s->ppl.ssh, -1);
+        c->throttling_conn = false;
+        ssh_throttle_conn(s->ppl.ssh, -1);
     }
 }
 
@@ -744,14 +766,6 @@ static void ssh1_enable_x_fwd(ConnectionLayer *cl)
         container_of(cl, struct ssh1_connection_state, cl);
 
     s->X11_fwd_enabled = true;
-}
-
-static void ssh1_enable_agent_fwd(ConnectionLayer *cl)
-{
-    struct ssh1_connection_state *s =
-        container_of(cl, struct ssh1_connection_state, cl);
-
-    s->agent_fwd_enabled = true;
 }
 
 static void ssh1_set_wants_user_input(ConnectionLayer *cl, bool wanted)

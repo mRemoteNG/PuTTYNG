@@ -22,6 +22,9 @@
 #define CONNSHARE_SOCKETDIR_PREFIX "/tmp/putty-connshare"
 #define SALT_FILENAME "salt"
 #define SALT_SIZE 64
+#ifndef PIPE_BUF
+#define PIPE_BUF _POSIX_PIPE_BUF
+#endif
 
 static char *make_parentdir_name(void)
 {
@@ -270,7 +273,7 @@ int platform_ssh_share(const char *pi_name, Conf *conf,
     /*
      * Acquire a lock on a file in that directory.
      */
-    lockname = dupcat(dirname, "/lock", (char *)NULL);
+    lockname = dupcat(dirname, "/lock");
     lockfd = open(lockname, O_CREAT | O_RDWR | O_TRUNC, 0600);
     if (lockfd < 0) {
         *logtext = dupprintf("%s: open: %s", lockname, strerror(errno));
@@ -345,11 +348,11 @@ void platform_ssh_share_cleanup(const char *name)
         return;
     }
 
-    filename = dupcat(dirname, "/socket", (char *)NULL);
+    filename = dupcat(dirname, "/socket");
     remove(filename);
     sfree(filename);
 
-    filename = dupcat(dirname, "/lock", (char *)NULL);
+    filename = dupcat(dirname, "/lock");
     remove(filename);
     sfree(filename);
 

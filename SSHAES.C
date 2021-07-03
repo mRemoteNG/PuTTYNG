@@ -52,15 +52,17 @@
 #       define USE_CLANG_ATTR_TARGET_AARCH64
 #   endif
 #elif defined _MSC_VER
-    /* Visual Studio supports the crypto extension when targeting
-     * AArch64, but as of VS2017, the AArch32 header doesn't quite
-     * manage it (declaring the aese/aesd intrinsics without a round
-     * key operand). */
 #   if defined _M_ARM64
 #       define HW_AES HW_AES_NEON
-#       if defined _M_ARM64
-#           define USE_ARM64_NEON_H /* unusual header name in this case */
-#       endif
+        /* 64-bit Visual Studio uses the header <arm64_neon.h> in place
+         * of the standard <arm_neon.h> */
+#       define USE_ARM64_NEON_H
+#   elif defined _M_ARM
+#       define HW_AES HW_AES_NEON
+        /* 32-bit Visual Studio uses the right header name, but requires
+         * this #define to enable a set of intrinsic definitions that
+         * do not omit one of the parameters for vaes[ed]q_u8 */
+#       define _ARM_USE_NEW_NEON_INTRINSICS
 #   endif
 #endif
 
@@ -83,7 +85,7 @@
  * vtables: one for the pure software implementation, one using
  * hardware acceleration (if available), and a top-level one which is
  * never actually instantiated, and only contains a new() method whose
- * job is to decide whihc of the other two to return an actual
+ * job is to decide which of the other two to return an actual
  * instance of.
  */
 
@@ -104,30 +106,54 @@ struct aes_extra {
 };
 
 #define VTABLES_INNER(cid, pid, bits, name, encsuffix,                  \
-                      decsuffix, setiv, flags)                          \
+                      decsuffix, setivsuffix, flagsval)                 \
     static void cid##_sw##encsuffix(ssh_cipher *, void *blk, int len);  \
     static void cid##_sw##decsuffix(ssh_cipher *, void *blk, int len);  \
     const ssh_cipheralg ssh_##cid##_sw = {                              \
-        aes_sw_new, aes_sw_free, aes_sw_##setiv, aes_sw_setkey,         \
-        cid##_sw##encsuffix, cid##_sw##decsuffix, NULL, NULL,           \
-        pid, 16, bits, bits/8, flags, name " (unaccelerated)",          \
-        NULL, NULL };                                                   \
+        .new = aes_sw_new,                                              \
+        .free = aes_sw_free,                                            \
+        .setiv = aes_sw_##setivsuffix,                                  \
+        .setkey = aes_sw_setkey,                                        \
+        .encrypt = cid##_sw##encsuffix,                                 \
+        .decrypt = cid##_sw##decsuffix,                                 \
+        .ssh2_id = pid,                                                 \
+        .blksize = 16,                                                  \
+        .real_keybits = bits,                                           \
+        .padded_keybytes = bits/8,                                      \
+        .flags = flagsval,                                              \
+        .text_name = name " (unaccelerated)",                           \
+    };                                                                  \
                                                                         \
     static void cid##_hw##encsuffix(ssh_cipher *, void *blk, int len);  \
     static void cid##_hw##decsuffix(ssh_cipher *, void *blk, int len);  \
     const ssh_cipheralg ssh_##cid##_hw = {                              \
-        aes_hw_new, aes_hw_free, aes_hw_##setiv, aes_hw_setkey,         \
-        cid##_hw##encsuffix, cid##_hw##decsuffix, NULL, NULL,           \
-        pid, 16, bits, bits/8, flags, name HW_NAME_SUFFIX,              \
-        NULL, NULL };                                                   \
+        .new = aes_hw_new,                                              \
+        .free = aes_hw_free,                                            \
+        .setiv = aes_hw_##setivsuffix,                                  \
+        .setkey = aes_hw_setkey,                                        \
+        .encrypt = cid##_hw##encsuffix,                                 \
+        .decrypt = cid##_hw##decsuffix,                                 \
+        .ssh2_id = pid,                                                 \
+        .blksize = 16,                                                  \
+        .real_keybits = bits,                                           \
+        .padded_keybytes = bits/8,                                      \
+        .flags = flagsval,                                              \
+        .text_name = name HW_NAME_SUFFIX,                               \
+    };                                                                  \
                                                                         \
-    const struct aes_extra extra_##cid = {                              \
+    static const struct aes_extra extra_##cid = {                       \
         &ssh_##cid##_sw, &ssh_##cid##_hw };                             \
                                                                         \
     const ssh_cipheralg ssh_##cid = {                                   \
-        aes_select, NULL, NULL, NULL, NULL, NULL, NULL, NULL,           \
-        pid, 16, bits, bits/8, flags, name " (dummy selector vtable)",  \
-        NULL, &extra_##cid };                                           \
+        .new = aes_select,                                              \
+        .ssh2_id = pid,                                                 \
+        .blksize = 16,                                                  \
+        .real_keybits = bits,                                           \
+        .padded_keybytes = bits/8,                                      \
+        .flags = flagsval,                                              \
+        .text_name = name " (dummy selector vtable)",                   \
+        .extra = &extra_##cid                                           \
+    };                                                                  \
 
 #define VTABLES(keylen)                                                 \
     VTABLES_INNER(aes ## keylen ## _cbc, "aes" #keylen "-cbc",          \
@@ -142,9 +168,14 @@ VTABLES(256)
 
 static const ssh_cipheralg ssh_rijndael_lysator = {
     /* Same as aes256_cbc, but with a different protocol ID */
-    aes_select, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    "rijndael-cbc@lysator.liu.se", 16, 256, 256/8, 0,
-    "AES-256 CBC (dummy selector vtable)", NULL, &extra_aes256_cbc
+    .new = aes_select,
+    .ssh2_id = "rijndael-cbc@lysator.liu.se",
+    .blksize = 16,
+    .real_keybits = 256,
+    .padded_keybytes = 256/8,
+    .flags = 0,
+    .text_name = "AES-256 CBC (dummy selector vtable)",
+    .extra = &extra_aes256_cbc,
 };
 
 static const ssh_cipheralg *const aes_list[] = {
@@ -854,7 +885,7 @@ static void aes_sliced_key_setup(
          * Prepare a word of round key in the low 4 bits of each
          * integer in slices[].
          */
-	if (i < key_words) {
+        if (i < key_words) {
             memcpy(inblk, key + 4*i, 4);
             TO_BITSLICES(slices, inblk, uint16_t, =, 0);
         } else {
@@ -903,7 +934,7 @@ static void aes_sliced_key_setup(
             prevslices = sk->roundkeys_serial + 8 * (wordindex >> 2);
             for (size_t i = 0; i < 8; i++)
                 slices[i] ^= prevslices[i] >> bitshift;
-	}
+        }
 
         /*
          * Now copy it into sk.
@@ -1319,10 +1350,10 @@ static FUNC_ISA void aes_ni_key_expand(
     unsigned rconpos = 0;
 
     for (size_t i = 0; i < sched_words; i++) {
-	if (i < key_words) {
+        if (i < key_words) {
             sched[i] = GET_32BIT_LSB_FIRST(key + 4 * i);
         } else {
-	    uint32_t temp = sched[i - 1];
+            uint32_t temp = sched[i - 1];
 
             bool rotate_and_round_constant = (i % key_words == 0);
             bool only_sub = (key_words == 8 && i % 8 == 4);
@@ -1341,7 +1372,7 @@ static FUNC_ISA void aes_ni_key_expand(
             }
 
             sched[i] = sched[i - key_words] ^ temp;
-	}
+        }
     }
 
     /*
@@ -1623,10 +1654,10 @@ static FUNC_ISA void aes_neon_key_expand(
     unsigned rconpos = 0;
 
     for (size_t i = 0; i < sched_words; i++) {
-	if (i < key_words) {
+        if (i < key_words) {
             sched[i] = GET_32BIT_LSB_FIRST(key + 4 * i);
         } else {
-	    uint32_t temp = sched[i - 1];
+            uint32_t temp = sched[i - 1];
 
             bool rotate_and_round_constant = (i % key_words == 0);
             bool sub = rotate_and_round_constant ||
@@ -1649,7 +1680,7 @@ static FUNC_ISA void aes_neon_key_expand(
             }
 
             sched[i] = sched[i - key_words] ^ temp;
-	}
+        }
     }
 
     /*
