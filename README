@@ -1,3 +1,20 @@
+PuTTYNG Specific Changes:
+BE_ALL_S.C
+CMDLINE.C
+PUTTY.H
+WINDOWS/PUTTY.RC
+WINDOWS/VERSION.RC2 
+WINDOWS/WINDOW.C
+
+MAKEFILE.NG (merge changes from Makefile.vc):
+  * MAKEFILE = MAKEFILE.NG
+  * rename putty.exe to puttyng.exe
+  * change the "all" target to only build puttyng.exe
+
+===
+
+PuTTY original README:
+
 This is the README for the source archive of PuTTY, a free Windows
 and Unix Telnet and SSH client.
 

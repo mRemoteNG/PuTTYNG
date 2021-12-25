@@ -397,6 +397,14 @@ int cmdline_process_param(const char *p, char *value,
         }
     }
 
+#ifdef PUTTYNG
+	if (!stricmp(p, "-hwndparent")) {
+		RETURN(2);
+		hwnd_parent = atoi(value);
+		return 2;
+	}
+#endif
+
     if (!strcmp(p, "-load")) {
         RETURN(2);
         /* This parameter must be processed immediately rather than being
