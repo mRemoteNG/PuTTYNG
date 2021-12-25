@@ -24,3 +24,6 @@ This is a modieifed version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtat
 - git remote update putty
 - git checkout master
 - git merge tags/0.76
+- git push master
+
+After that create a new tag from within GitHub to trigger the AppVeyor release build.
