@@ -2,7 +2,10 @@
 
 This is a modieifed version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html) from [Simon Tatham](https://www.chiark.greenend.org.uk/~sgtatham/) to be used with [mRemoteNG](https://mremoteng.org/).
 
-[![Build status](https://ci.appveyor.com/api/projects/status/lbux84r7mt5fh4ar/branch/master?svg=true)](https://ci.appveyor.com/project/mremoteng/puttyng-77pmq/branch/master)
+| Branch | Build |
+|:-----------------: |:-------------------:|
+| `Main` | [![Build status](https://ci.appveyor.com/api/projects/status/lbux84r7mt5fh4ar/branch/master?svg=true)](https://ci.appveyor.com/project/mremoteng/puttyng/branch/main) |
+| `Develop` | [![Build status](https://ci.appveyor.com/api/projects/status/lbux84r7mt5fh4ar/branch/master?svg=true)](https://ci.appveyor.com/project/mremoteng/puttyng/branch/develop) |
 
 **The following files within the project were modified:**
 - BE_ALL_S.C
