@@ -20,11 +20,8 @@ echo.
 echo Building...
 "%_VSPATHBASE%\SDK\ScopeCppSDK\vc15\VC\bin\nmake.exe" -f MAKEFILE.NG VER="/DNG_VER_MAJOR=0 /DNG_VER_MINOR=76 /DNG_VER_BUILD=0 /DNG_VER_REVISION=0"
 echo.
-echo Set file version
-start /b "" "C:\projects\puttyng-publish\rcedit-x64.exe" %~dp0PuTTYNG.exe --set-file-version "0.76.0"
+echo Set version
+start /b "" "C:\projects\puttyng-publish\rcedit-x64.exe" %~dp0PuTTYNG.exe --set-file-version "0.76.0" --set-product-version "4 RemoteNG"
 echo.
-echo Set Product version
-echo.
-start /b "" "C:\projects\puttyng-publish\rcedit-x64.exe" %~dp0PuTTYNG.exe --set-product-version "4 RemoteNG"
 echo Finished
 echo.
