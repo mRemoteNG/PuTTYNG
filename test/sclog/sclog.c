@@ -270,6 +270,38 @@ static void wrap_memset_pre(void *wrapctx, void **user_data)
 }
 
 /*
+ * Similarly to the above, wrap some versions of memmove.
+ */
+static void wrap_memmove_pre(void *wrapctx, void **user_data)
+{
+    uint was_already_paused = logging_paused++;
+
+    if (outfile == INVALID_FILE || was_already_paused)
+        return;
+
+    const void *daddr = drwrap_get_arg(wrapctx, 0);
+    const void *saddr = drwrap_get_arg(wrapctx, 1);
+    size_t size = (size_t)drwrap_get_arg(wrapctx, 2);
+
+
+    struct allocation *alloc;
+
+    dr_fprintf(outfile, "memmove %"PRIuMAX" ", (uintmax_t)size);
+    if (!(alloc = find_allocation(daddr))) {
+        dr_fprintf(outfile, "to %"PRIxMAX" ", (uintmax_t)daddr);
+    } else {
+        dr_fprintf(outfile, "to allocations[%"PRIuPTR"] + %"PRIxMAX" ",
+                   alloc->index, (uintmax_t)(daddr - alloc->start));
+    }
+    if (!(alloc = find_allocation(saddr))) {
+        dr_fprintf(outfile, "from %"PRIxMAX"\n", (uintmax_t)saddr);
+    } else {
+        dr_fprintf(outfile, "from allocations[%"PRIuPTR"] + %"PRIxMAX"\n",
+                   alloc->index, (uintmax_t)(saddr - alloc->start));
+    }
+}
+
+/*
  * Common post-wrapper function for memset and free, whose entire
  * function is to unpause the logging.
  */
@@ -447,20 +479,20 @@ static dr_emit_flags_t instrument_instr(
          */
         opnd_t shiftcount = instr_get_src(instr, 0);
         if (!opnd_is_immed(shiftcount)) {
-          reg_id_t r0;
-          drreg_status_t st;
-          st = drreg_reserve_register(drcontext, bb, instr, NULL, &r0);
-          DR_ASSERT(st == DRREG_SUCCESS);
-          opnd_t op_r0 = opnd_create_reg(r0);
-          instr_t *movzx = INSTR_CREATE_movzx(drcontext, op_r0, shiftcount);
-          instr_set_translation(movzx, instr_get_app_pc(instr));
-          instrlist_preinsert(bb, instr, movzx);
-          instr_format_location(instr, &loc);
-          dr_insert_clean_call(
-              drcontext, bb, instr, (void *)log_var_shift, false,
-              2, op_r0, OPND_CREATE_INTPTR(loc));
-          st = drreg_unreserve_register(drcontext, bb, instr, r0);
-          DR_ASSERT(st == DRREG_SUCCESS);
+            reg_id_t r0;
+            drreg_status_t st;
+            st = drreg_reserve_register(drcontext, bb, instr, NULL, &r0);
+            DR_ASSERT(st == DRREG_SUCCESS);
+            opnd_t op_r0 = opnd_create_reg(r0);
+            instr_t *movzx = INSTR_CREATE_movzx(drcontext, op_r0, shiftcount);
+            instr_set_translation(movzx, instr_get_app_pc(instr));
+            instrlist_preinsert(bb, instr, movzx);
+            instr_format_location(instr, &loc);
+            dr_insert_clean_call(
+                drcontext, bb, instr, (void *)log_var_shift, false,
+                2, op_r0, OPND_CREATE_INTPTR(loc));
+            st = drreg_unreserve_register(drcontext, bb, instr, r0);
+            DR_ASSERT(st == DRREG_SUCCESS);
         }
         break;
       }
@@ -554,7 +586,7 @@ static void load_module(
 #define TRY_WRAP(fn, pre, post) do                              \
     {                                                           \
         static bool done_this_one = false;                      \
-        try_wrap_fn(module, fn, pre, post, &done_this_one);    \
+        try_wrap_fn(module, fn, pre, post, &done_this_one);     \
     } while (0)
 
     if (loaded) {
@@ -565,6 +597,7 @@ static void load_module(
             TRY_WRAP("realloc", wrap_realloc_pre, wrap_alloc_post);
             TRY_WRAP("free", wrap_free_pre, unpause_post);
             TRY_WRAP("memset", wrap_memset_pre, unpause_post);
+            TRY_WRAP("memmove", wrap_memmove_pre, unpause_post);
 
             /*
              * More strangely named versions of standard C library
@@ -585,6 +618,8 @@ static void load_module(
             TRY_WRAP("__GI___libc_free", wrap_free_pre, unpause_post);
             TRY_WRAP("__memset_sse2_unaligned", wrap_memset_pre, unpause_post);
             TRY_WRAP("__memset_sse2", wrap_memset_pre, unpause_post);
+            TRY_WRAP("__memmove_avx_unaligned_erms", wrap_memmove_pre,
+                     unpause_post);
             TRY_WRAP("cfree", wrap_free_pre, unpause_post);
         }
     }

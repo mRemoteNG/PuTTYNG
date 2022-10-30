@@ -91,6 +91,10 @@
   <?define Desktop_Shortcut_Component_GUID = "8999BBE1-F99E-4301-B7A6-480C19DE13B9" ?>
 <?endif ?>
 
+<?ifndef HelpFilePath ?>
+  <?define HelpFilePath = "../doc/putty.chm" ?>
+<?endif ?>
+
 <?define ProgramName = "PuTTY$(var.Bitness)" ?>
 
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
@@ -117,12 +121,6 @@
       Language="1033" Codepage="1252" Version="$(var.Winver)">
 
     <!--
-        We force the install scope to perMachine, largely because I
-        don't really understand how to make it usefully switchable
-        between the two. If anyone is a WiX expert and does want to
-        install PuTTY locally in a user account, I hope they'll send a
-        well explained patch!
-
         $(var.Puttytextver) is again defined on the candle command
         line, and describes the version of PuTTY in human-readable
         form, e.g. "PuTTY 0.67" or "PuTTY development snapshot [foo]".
@@ -131,8 +129,7 @@
              Description="$(var.Puttytextver) installer"
              Manufacturer="Simon Tatham"
              InstallerVersion="$(var.InstallerVersion)" Languages="1033"
-             Compressed="yes" SummaryCodepage="1252"
-             InstallScope="perMachine" />
+             Compressed="yes" SummaryCodepage="1252" />
 
     <!--
         Permit installing an arbitrary one of these PuTTY installers
@@ -238,7 +235,7 @@ https://msdn.microsoft.com/en-us/library/windows/desktop/dd391569(v=vs.85).aspx
           <Component Id="HelpFile_Component"
                      Guid="$(var.HelpFile_Component_GUID)">
             <File Id="HelpFile_File"
-                  Source="../doc/putty.chm" KeyPath="yes">
+                  Source="$(var.HelpFilePath)" KeyPath="yes">
               <Shortcut Id="startmenuManual" Directory="ProgramMenuDir"
                         Name="PuTTY Manual"
                         Advertise="no" />

@@ -121,11 +121,51 @@ static int offset_width, offset_height;
 static bool was_zoomed = false;
 static int prev_rows, prev_cols;
 
+<<<<<<< HEAD
 static void flash_window(WinGuiSeat *wgs, int mode);
 static void sys_cursor_update(WinGuiSeat *wgs);
 static bool get_fullscreen_rect(WinGuiSeat *wgs, RECT *ss);
 
 static void conf_cache_data(WinGuiSeat *wgs);
+=======
+static void flash_window(int mode);
+static void sys_cursor_update(void);
+static bool get_fullscreen_rect(RECT *ss);
+
+static int caret_x = -1, caret_y = -1;
+
+static int kbd_codepage;
+
+static Ldisc *ldisc;
+static Backend *backend;
+
+static cmdline_get_passwd_input_state cmdline_get_passwd_state;
+
+static struct unicode_data ucsdata;
+static bool session_closed;
+static bool reconfiguring = false;
+
+static const SessionSpecial *specials = NULL;
+static HMENU specials_menu = NULL;
+static int n_specials = 0;
+
+#define TIMING_TIMER_ID 1234
+static long timing_next_time;
+
+static struct {
+    HMENU menu;
+} popup_menus[2];
+enum { SYSMENU, CTXMENU };
+static HMENU savedsess_menu;
+
+static Conf *conf;
+static LogContext *logctx;
+static Terminal *term;
+
+static void conf_cache_data(void);
+static int cursor_type;
+static int vtmode;
+>>>>>>> tags/0.78
 
 static struct sesslist sesslist;       /* for saved-session menu */
 
@@ -139,6 +179,24 @@ DECL_WINDOWS_FUNCTION(static, HRESULT, AdjustWindowRectExForDpi, (LPRECT lpRect,
 
 static HBITMAP caretbm;
 
+<<<<<<< HEAD
+=======
+static int dbltime, lasttime, lastact;
+static Mouse_Button lastbtn;
+
+/* this allows xterm-style mouse handling. */
+static bool send_raw_mouse = false;
+static int wheel_accumulator = 0;
+
+static bool pointer_indicates_raw_mouse = false;
+
+static BusyStatus busy_status = BUSY_NOT;
+
+static wchar_t *window_name, *icon_name;
+
+static int compose_state = 0;
+
+>>>>>>> tags/0.78
 static UINT wm_mousewheel = WM_MOUSEWHEEL;
 
 struct WinGuiSeatListNode wgslisthead = {
@@ -289,7 +347,13 @@ static void start_backend(WinGuiSeat *wgs)
     char *error, *realhost;
     int i;
 
+<<<<<<< HEAD
     wgs->cmdline_get_passwd_state = cmdline_get_passwd_input_state_new;
+=======
+    cmdline_get_passwd_state = cmdline_get_passwd_input_state_new;
+
+    vt = backend_vt_from_conf(conf);
+>>>>>>> tags/0.78
 
     vt = backend_vt_from_conf(wgs->conf);
 
@@ -308,7 +372,11 @@ static void start_backend(WinGuiSeat *wgs)
             msg = dupprintf("Unable to open terminal:\n%s", error);
         } else {
             msg = dupprintf("Unable to open connection to\n%s\n%s",
+<<<<<<< HEAD
                             conf_dest(wgs->conf), error);
+=======
+                            conf_dest(conf), error);
+>>>>>>> tags/0.78
         }
         sfree(error);
         MessageBox(NULL, msg, str, MB_ICONERROR | MB_OK);
@@ -351,8 +419,13 @@ static void close_session(void *vctx)
 
     wgs->session_closed = true;
     newtitle = dupprintf("%s (inactive)", appname);
+<<<<<<< HEAD
     win_set_icon_title(&wgs->termwin, newtitle, DEFAULT_CODEPAGE);
     win_set_title(&wgs->termwin, newtitle, DEFAULT_CODEPAGE);
+=======
+    win_set_icon_title(wintw, newtitle, DEFAULT_CODEPAGE);
+    win_set_title(wintw, newtitle, DEFAULT_CODEPAGE);
+>>>>>>> tags/0.78
     sfree(newtitle);
 
     if (wgs->ldisc) {
@@ -514,11 +587,19 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     /*
      * Process the command line.
      */
+<<<<<<< HEAD
     gui_term_process_cmdline(wgs->conf, cmdline);
 
     memset(&wgs->ucsdata, 0, sizeof(wgs->ucsdata));
 
     conf_cache_data(wgs);
+=======
+    gui_term_process_cmdline(conf, cmdline);
+
+    memset(&ucsdata, 0, sizeof(ucsdata));
+
+    conf_cache_data();
+>>>>>>> tags/0.78
 
     /*
      * Guess some defaults for the window size. This all gets
@@ -553,9 +634,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         if (vt && vt->flags & BACKEND_RESIZE_FORBIDDEN)
             resize_forbidden = true;
         wchar_t *uappname = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
+<<<<<<< HEAD
         wgs->window_name = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
         wgs->icon_name = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
         if (!conf_get_bool(wgs->conf, CONF_scrollbar))
+=======
+        window_name = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
+        icon_name = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
+        if (!conf_get_bool(conf, CONF_scrollbar))
+>>>>>>> tags/0.78
             winmode &= ~(WS_VSCROLL);
         if (conf_get_int(wgs->conf, CONF_resize_action) == RESIZE_DISABLED ||
             resize_forbidden)
@@ -568,40 +655,65 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 #ifdef TEST_ANSI_WINDOW
         /* For developer testing of ANSI window support, pretend
          * CreateWindowExW failed */
+<<<<<<< HEAD
         wgs->term_hwnd = NULL;
+=======
+        wgs.term_hwnd = NULL;
+>>>>>>> tags/0.78
         SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 #else
         unicode_window = true;
         sw_PeekMessage = PeekMessageW;
         sw_DispatchMessage = DispatchMessageW;
         sw_DefWindowProc = DefWindowProcW;
+<<<<<<< HEAD
         wgs->term_hwnd = CreateWindowExW(
+=======
+        wgs.term_hwnd = CreateWindowExW(
+>>>>>>> tags/0.78
             exwinmode, terminal_window_class_w(), uappname,
             winmode, CW_USEDEFAULT, CW_USEDEFAULT,
             guess_width, guess_height, NULL, NULL, inst, NULL);
 #endif
 
 #if defined LEGACY_WINDOWS || defined TEST_ANSI_WINDOW
+<<<<<<< HEAD
         if (!wgs->term_hwnd && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED) {
+=======
+        if (!wgs.term_hwnd && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED) {
+>>>>>>> tags/0.78
             /* Fall back to an ANSI window, swapping in all the ANSI
              * window message handling functions */
             unicode_window = false;
             sw_PeekMessage = PeekMessageA;
             sw_DispatchMessage = DispatchMessageA;
             sw_DefWindowProc = DefWindowProcA;
+<<<<<<< HEAD
             wgs->term_hwnd = CreateWindowExA(
+=======
+            wgs.term_hwnd = CreateWindowExA(
+>>>>>>> tags/0.78
                 exwinmode, terminal_window_class_a(), appname,
                 winmode, CW_USEDEFAULT, CW_USEDEFAULT,
                 guess_width, guess_height, NULL, NULL, inst, NULL);
         }
 #endif
 
+<<<<<<< HEAD
         if (!wgs->term_hwnd) {
             modalfatalbox("Unable to create terminal window: %s",
                           win_strerror(GetLastError()));
         }
         memset(&wgs->dpi_info, 0, sizeof(struct _dpi_info));
         init_dpi_info(wgs);
+=======
+        if (!wgs.term_hwnd) {
+            modalfatalbox("Unable to create terminal window: %s",
+                          win_strerror(GetLastError()));
+        }
+        memset(&dpi_info, 0, sizeof(struct _dpi_info));
+        init_dpi_info();
+>>>>>>> tags/0.78
         sfree(uappname);
     }
 
@@ -759,6 +871,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     gui_terminal_ready(wgs->term_hwnd, &wgs->seat, wgs->backend);
 
+    gui_terminal_ready(wgs.term_hwnd, &wgs.seat, backend);
+
     while (1) {
         int n;
         DWORD timeout;
@@ -837,6 +951,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     return msg.wParam;                 /* ... but optimiser doesn't know */
 }
 
+<<<<<<< HEAD
 static void wgs_cleanup(WinGuiSeat *wgs)
 {
     deinit_fonts(wgs);
@@ -847,6 +962,8 @@ static void wgs_cleanup(WinGuiSeat *wgs)
     sfree(wgs);
 }
 
+=======
+>>>>>>> tags/0.78
 char *handle_restrict_acl_cmdline_prefix(char *p)
 {
     /*
@@ -1345,11 +1462,19 @@ static int get_font_width(HDC hdc, const TEXTMETRIC *tm)
 
 static void init_dpi_info(WinGuiSeat *wgs)
 {
+<<<<<<< HEAD
     if (wgs->dpi_info.cur_dpi.x == 0 || wgs->dpi_info.cur_dpi.y == 0) {
         if (p_GetDpiForMonitor && p_MonitorFromWindow) {
             UINT dpiX, dpiY;
             HMONITOR currentMonitor = p_MonitorFromWindow(
                 wgs->term_hwnd, MONITOR_DEFAULTTOPRIMARY);
+=======
+    if (dpi_info.cur_dpi.x == 0 || dpi_info.cur_dpi.y == 0) {
+        if (p_GetDpiForMonitor && p_MonitorFromWindow) {
+            UINT dpiX, dpiY;
+            HMONITOR currentMonitor = p_MonitorFromWindow(
+                wgs.term_hwnd, MONITOR_DEFAULTTOPRIMARY);
+>>>>>>> tags/0.78
             if (p_GetDpiForMonitor(currentMonitor, MDT_EFFECTIVE_DPI,
                                    &dpiX, &dpiY) == S_OK) {
                 wgs->dpi_info.cur_dpi.x = (int)dpiX;
@@ -1472,12 +1597,21 @@ static void init_fonts(WinGuiSeat *wgs, int pick_width, int pick_height)
 
         /* !!! Yes the next line is right */
         if (cset == OEM_CHARSET)
+<<<<<<< HEAD
             wgs->ucsdata.font_codepage = GetOEMCP();
         else if (TranslateCharsetInfo ((DWORD *)(ULONG_PTR)cset,
                                        &info, TCI_SRCCHARSET))
             wgs->ucsdata.font_codepage = info.ciACP;
         else
             wgs->ucsdata.font_codepage = -1;
+=======
+            ucsdata.font_codepage = GetOEMCP();
+        else if (TranslateCharsetInfo ((DWORD *)(ULONG_PTR)cset,
+                                       &info, TCI_SRCCHARSET))
+            ucsdata.font_codepage = info.ciACP;
+        else
+            ucsdata.font_codepage = -1;
+>>>>>>> tags/0.78
 
         GetCPInfo(wgs->ucsdata.font_codepage, &cpinfo);
         wgs->ucsdata.dbcs_screenfont = (cpinfo.MaxCharSize > 1);
@@ -1658,9 +1792,15 @@ static void wintw_request_resize(TermWin *tw, int w, int h)
     int width, height;
 
     /* If the window is maximized suppress resizing attempts */
+<<<<<<< HEAD
     if (IsZoomed(wgs->term_hwnd)) {
         if (conf_get_int(wgs->conf, CONF_resize_action) == RESIZE_TERM) {
             term_resize_request_completed(wgs->term);
+=======
+    if (IsZoomed(wgs.term_hwnd)) {
+        if (conf_get_int(conf, CONF_resize_action) == RESIZE_TERM) {
+            term_resize_request_completed(term);
+>>>>>>> tags/0.78
             return;
         }
     }
@@ -1674,13 +1814,21 @@ static void wintw_request_resize(TermWin *tw, int w, int h)
     /* Sanity checks ... */
     {
         RECT ss;
+<<<<<<< HEAD
         if (get_fullscreen_rect(wgs, &ss)) {
+=======
+        if (get_fullscreen_rect(&ss)) {
+>>>>>>> tags/0.78
             /* Make sure the values aren't too big */
             width = (ss.right - ss.left - extra_width) / 4;
             height = (ss.bottom - ss.top - extra_height) / 6;
 
             if (w > width || h > height) {
+<<<<<<< HEAD
                 term_resize_request_completed(wgs->term);
+=======
+                term_resize_request_completed(term);
+>>>>>>> tags/0.78
                 return;
             }
             if (w < 15)
@@ -1690,12 +1838,21 @@ static void wintw_request_resize(TermWin *tw, int w, int h)
         }
     }
 
+<<<<<<< HEAD
     if (conf_get_int(wgs->conf, CONF_resize_action) != RESIZE_FONT &&
         !IsZoomed(wgs->term_hwnd)) {
         width = extra_width + font_width * w;
         height = extra_height + font_height * h;
 
         SetWindowPos(wgs->term_hwnd, NULL, 0, 0, width, height,
+=======
+    if (conf_get_int(conf, CONF_resize_action) != RESIZE_FONT &&
+        !IsZoomed(wgs.term_hwnd)) {
+        width = extra_width + font_width * w;
+        height = extra_height + font_height * h;
+
+        SetWindowPos(wgs.term_hwnd, NULL, 0, 0, width, height,
+>>>>>>> tags/0.78
                      SWP_NOACTIVATE | SWP_NOCOPYBITS |
                      SWP_NOMOVE | SWP_NOZORDER);
     } else {
@@ -1704,12 +1861,21 @@ static void wintw_request_resize(TermWin *tw, int w, int h)
          * terminal the new size immediately, so that reset_window
          * will know what to do.
          */
+<<<<<<< HEAD
         term_size(wgs->term, h, w, conf_get_int(wgs->conf, CONF_savelines));
         reset_window(wgs, 0);
     }
 
     term_resize_request_completed(wgs->term);
     InvalidateRect(wgs->term_hwnd, NULL, true);
+=======
+        term_size(term, h, w, conf_get_int(conf, CONF_savelines));
+        reset_window(0);
+    }
+
+    term_resize_request_completed(term);
+    InvalidateRect(wgs.term_hwnd, NULL, true);
+>>>>>>> tags/0.78
 }
 
 static void recompute_window_offset(WinGuiSeat *wgs)
@@ -1837,6 +2003,7 @@ static void reset_window(WinGuiSeat *wgs, int reinit)
             wgs->dpi_info.cur_dpi.x);
         rect.right += (window_border * 2);
         rect.bottom += (window_border * 2);
+<<<<<<< HEAD
         OffsetRect(&wgs->dpi_info.new_wnd_rect,
                    ((wgs->dpi_info.new_wnd_rect.right -
                      wgs->dpi_info.new_wnd_rect.left) -
@@ -1847,6 +2014,15 @@ static void reset_window(WinGuiSeat *wgs, int reinit)
         SetWindowPos(wgs->term_hwnd, NULL,
                      wgs->dpi_info.new_wnd_rect.left,
                      wgs->dpi_info.new_wnd_rect.top,
+=======
+        OffsetRect(&dpi_info.new_wnd_rect,
+                   ((dpi_info.new_wnd_rect.right - dpi_info.new_wnd_rect.left) -
+                    (rect.right - rect.left)) / 2,
+                   ((dpi_info.new_wnd_rect.bottom - dpi_info.new_wnd_rect.top) -
+                    (rect.bottom - rect.top)) / 2);
+        SetWindowPos(wgs.term_hwnd, NULL,
+                     dpi_info.new_wnd_rect.left, dpi_info.new_wnd_rect.top,
+>>>>>>> tags/0.78
                      rect.right - rect.left, rect.bottom - rect.top,
                      SWP_NOZORDER);
 
@@ -1900,7 +2076,11 @@ static void reset_window(WinGuiSeat *wgs, int reinit)
             static RECT ss;
             int width, height;
 
+<<<<<<< HEAD
             get_fullscreen_rect(wgs, &ss);
+=======
+            get_fullscreen_rect(&ss);
+>>>>>>> tags/0.78
 
             width = (ss.right - ss.left - extra_width) / font_width;
             height = (ss.bottom - ss.top - extra_height) / font_height;
@@ -2016,10 +2196,17 @@ static Mouse_Button translate_button(WinGuiSeat *wgs, Mouse_Button button)
     if (button == MBT_LEFT)
         return MBT_SELECT;
     if (button == MBT_MIDDLE)
+<<<<<<< HEAD
         return conf_get_int(wgs->conf, CONF_mouse_is_xterm) == 1 ?
             MBT_PASTE : MBT_EXTEND;
     if (button == MBT_RIGHT)
         return conf_get_int(wgs->conf, CONF_mouse_is_xterm) == 1 ?
+=======
+        return conf_get_int(conf, CONF_mouse_is_xterm) == 1 ?
+            MBT_PASTE : MBT_EXTEND;
+    if (button == MBT_RIGHT)
+        return conf_get_int(conf, CONF_mouse_is_xterm) == 1 ?
+>>>>>>> tags/0.78
             MBT_EXTEND : MBT_PASTE;
     return 0;                          /* shouldn't happen */
 }
@@ -2059,6 +2246,11 @@ static bool is_alt_pressed(void)
     return false;
 }
 
+<<<<<<< HEAD
+=======
+static bool resizing;
+
+>>>>>>> tags/0.78
 static void exit_callback(void *vctx)
 {
     WinGuiSeat *wgs = (WinGuiSeat *)vctx;
@@ -2088,6 +2280,14 @@ static void exit_callback(void *vctx)
 }
 
 static void win_seat_notify_remote_exit(Seat *seat)
+<<<<<<< HEAD
+=======
+{
+    queue_toplevel_callback(exit_callback, NULL);
+}
+
+void timer_change_notify(unsigned long next)
+>>>>>>> tags/0.78
 {
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
     queue_toplevel_callback(exit_callback, wgs);
@@ -2256,7 +2456,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 int size;
 
                 serbuf = strbuf_new();
+<<<<<<< HEAD
                 conf_serialise(BinarySink_UPCAST(serbuf), wgs->conf);
+=======
+                conf_serialise(BinarySink_UPCAST(serbuf), conf);
+>>>>>>> tags/0.78
                 size = serbuf->len;
 
                 sa.nLength = sizeof(sa);
@@ -2348,8 +2552,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             {
                 /* Disable full-screen if resizing forbidden */
                 int i;
+<<<<<<< HEAD
                 for (i = 0; i < lenof(wgs->popup_menus); i++)
                     EnableMenuItem(wgs->popup_menus[i].menu, IDM_FULLSCREEN,
+=======
+                for (i = 0; i < lenof(popup_menus); i++)
+                    EnableMenuItem(popup_menus[i].menu, IDM_FULLSCREEN,
+>>>>>>> tags/0.78
                                    MF_BYCOMMAND |
                                    (resize_action == RESIZE_DISABLED
                                     ? MF_GRAYED : MF_ENABLED));
@@ -2366,9 +2575,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
              * Flush the line discipline's edit buffer in the
              * case where local editing has just been disabled.
              */
+<<<<<<< HEAD
             if (wgs->ldisc) {
                 ldisc_configure(wgs->ldisc, wgs->conf);
                 ldisc_echoedit_update(wgs->ldisc);
+=======
+            if (ldisc) {
+                ldisc_configure(ldisc, conf);
+                ldisc_echoedit_update(ldisc);
+>>>>>>> tags/0.78
             }
 
             if (conf_get_bool(wgs->conf, CONF_system_colour) !=
@@ -2412,9 +2627,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                     GetWindowLongPtr(hwnd, GWL_EXSTYLE);
 
                 nexflag = exflag;
+<<<<<<< HEAD
                 if (conf_get_bool(wgs->conf, CONF_alwaysontop) !=
                     conf_get_bool(prev_conf, CONF_alwaysontop)) {
                     if (conf_get_bool(wgs->conf, CONF_alwaysontop)) {
+=======
+                if (conf_get_bool(conf, CONF_alwaysontop) !=
+                    conf_get_bool(prev_conf, CONF_alwaysontop)) {
+                    if (conf_get_bool(conf, CONF_alwaysontop)) {
+>>>>>>> tags/0.78
                         nexflag |= WS_EX_TOPMOST;
                         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
                                      SWP_NOMOVE | SWP_NOSIZE);
@@ -2424,13 +2645,21 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                                      SWP_NOMOVE | SWP_NOSIZE);
                     }
                 }
+<<<<<<< HEAD
                 if (conf_get_bool(wgs->conf, CONF_sunken_edge))
+=======
+                if (conf_get_bool(conf, CONF_sunken_edge))
+>>>>>>> tags/0.78
                     nexflag |= WS_EX_CLIENTEDGE;
                 else
                     nexflag &= ~(WS_EX_CLIENTEDGE);
 
                 nflg = flag;
+<<<<<<< HEAD
                 if (conf_get_bool(wgs->conf, is_full_screen(wgs) ?
+=======
+                if (conf_get_bool(conf, is_full_screen() ?
+>>>>>>> tags/0.78
                                   CONF_scrollbar_in_fullscreen :
                                   CONF_scrollbar))
                     nflg |= WS_VSCROLL;
@@ -2438,7 +2667,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                     nflg &= ~WS_VSCROLL;
 
                 if (resize_action == RESIZE_DISABLED ||
+<<<<<<< HEAD
                     is_full_screen(wgs))
+=======
+                    is_full_screen())
+>>>>>>> tags/0.78
                     nflg &= ~WS_THICKFRAME;
                 else
                     nflg |= WS_THICKFRAME;
@@ -2470,21 +2703,37 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             }
 
             {
+<<<<<<< HEAD
                 FontSpec *font = conf_get_fontspec(wgs->conf, CONF_font);
+=======
+                FontSpec *font = conf_get_fontspec(conf, CONF_font);
+>>>>>>> tags/0.78
                 FontSpec *prev_font = conf_get_fontspec(prev_conf,
                                                         CONF_font);
 
                 if (!strcmp(font->name, prev_font->name) ||
+<<<<<<< HEAD
                     !strcmp(conf_get_str(wgs->conf, CONF_line_codepage),
+=======
+                    !strcmp(conf_get_str(conf, CONF_line_codepage),
+>>>>>>> tags/0.78
                             conf_get_str(prev_conf, CONF_line_codepage)) ||
                     font->isbold != prev_font->isbold ||
                     font->height != prev_font->height ||
                     font->charset != prev_font->charset ||
+<<<<<<< HEAD
                     conf_get_int(wgs->conf, CONF_font_quality) !=
                     conf_get_int(prev_conf, CONF_font_quality) ||
                     conf_get_int(wgs->conf, CONF_vtmode) !=
                     conf_get_int(prev_conf, CONF_vtmode) ||
                     conf_get_int(wgs->conf, CONF_bold_style) !=
+=======
+                    conf_get_int(conf, CONF_font_quality) !=
+                    conf_get_int(prev_conf, CONF_font_quality) ||
+                    conf_get_int(conf, CONF_vtmode) !=
+                    conf_get_int(prev_conf, CONF_vtmode) ||
+                    conf_get_int(conf, CONF_bold_style) !=
+>>>>>>> tags/0.78
                     conf_get_int(prev_conf, CONF_bold_style) ||
                     resize_action == RESIZE_DISABLED ||
                     resize_action == RESIZE_EITHER ||
@@ -2582,9 +2831,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             POINT cursorpos;
 
             /* Just in case this happened in mid-select */
+<<<<<<< HEAD
             term_cancel_selection_drag(wgs->term);
 
             show_mouseptr(wgs, true);    /* make sure pointer is visible */
+=======
+            term_cancel_selection_drag(term);
+
+            show_mouseptr(true);    /* make sure pointer is visible */
+>>>>>>> tags/0.78
             GetCursorPos(&cursorpos);
             TrackPopupMenu(wgs->popup_menus[CTXMENU].menu,
                            TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RIGHTBUTTON,
@@ -2664,7 +2919,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 if (pt.x == 0 && pt.y == 0) {
                     mouse_on_hotspot = true;
                 }
+<<<<<<< HEAD
                 if (is_full_screen(wgs) && press &&
+=======
+                if (is_full_screen() && press &&
+>>>>>>> tags/0.78
                     button == MBT_LEFT && mouse_on_hotspot) {
                     SendMessage(hwnd, WM_SYSCOMMAND, SC_MOUSEMENU,
                                 MAKELPARAM(pt.x, pt.y));
@@ -2698,7 +2957,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         static LPARAM lp = 0;
         if (wParam != wp || lParam != lp ||
             last_mousemove != WM_MOUSEMOVE) {
+<<<<<<< HEAD
             show_mouseptr(wgs, true);
+=======
+            show_mouseptr(true);
+>>>>>>> tags/0.78
             wp = wParam; lp = lParam;
             last_mousemove = WM_MOUSEMOVE;
         }
@@ -2729,7 +2992,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         static LPARAM lp = 0;
         if (wParam != wp || lParam != lp ||
             last_mousemove != WM_NCMOUSEMOVE) {
+<<<<<<< HEAD
             show_mouseptr(wgs, true);
+=======
+            show_mouseptr(true);
+>>>>>>> tags/0.78
             wp = wParam; lp = lParam;
             last_mousemove = WM_NCMOUSEMOVE;
         }
@@ -2749,8 +3016,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
         HideCaret(hwnd);
         hdc = BeginPaint(hwnd, &p);
+<<<<<<< HEAD
         if (wgs->pal) {
             SelectPalette(hdc, wgs->pal, true);
+=======
+        if (pal) {
+            SelectPalette(hdc, pal, true);
+>>>>>>> tags/0.78
             RealizePalette(hdc);
         }
 
@@ -2805,10 +3077,17 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             HBRUSH fillcolour, oldbrush;
             HPEN   edge, oldpen;
             fillcolour = CreateSolidBrush (
+<<<<<<< HEAD
                 wgs->colours[ATTR_DEFBG>>ATTR_BGSHIFT]);
             oldbrush = SelectObject(hdc, fillcolour);
             edge = CreatePen(PS_SOLID, 0,
                              wgs->colours[ATTR_DEFBG>>ATTR_BGSHIFT]);
+=======
+                colours[ATTR_DEFBG>>ATTR_BGSHIFT]);
+            oldbrush = SelectObject(hdc, fillcolour);
+            edge = CreatePen(PS_SOLID, 0,
+                             colours[ATTR_DEFBG>>ATTR_BGSHIFT]);
+>>>>>>> tags/0.78
             oldpen = SelectObject(hdc, edge);
 
             /*
@@ -2824,8 +3103,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
             ExcludeClipRect(hdc,
                             offset_width, offset_height,
+<<<<<<< HEAD
                             offset_width+font_width*wgs->term->cols,
                             offset_height+font_height*wgs->term->rows);
+=======
+                            offset_width+font_width*term->cols,
+                            offset_height+font_height*term->rows);
+>>>>>>> tags/0.78
 
             Rectangle(hdc, p.rcPaint.left, p.rcPaint.top,
                       p.rcPaint.right, p.rcPaint.bottom);
@@ -3008,10 +3292,17 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         }
         if (wParam == SIZE_MINIMIZED)
             sw_SetWindowText(hwnd,
+<<<<<<< HEAD
                              conf_get_bool(wgs->conf, CONF_win_name_always) ?
                              wgs->window_name : wgs->icon_name);
         if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED)
             sw_SetWindowText(hwnd, wgs->window_name);
+=======
+                             conf_get_bool(conf, CONF_win_name_always) ?
+                             window_name : icon_name);
+        if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED)
+            sw_SetWindowText(hwnd, window_name);
+>>>>>>> tags/0.78
         if (wParam == SIZE_RESTORED) {
             processed_resize = false;
             clear_full_screen(wgs);
@@ -3288,20 +3579,32 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
              * instead we send the characters one by one.
              */
             /* don't divide SURROGATE PAIR */
+<<<<<<< HEAD
             if (wgs->ldisc) {
+=======
+            if (ldisc) {
+>>>>>>> tags/0.78
                 for (i = 0; i < n; i += 2) {
                     WCHAR hs = *(unsigned short *)(buff+i);
                     if (IS_HIGH_SURROGATE(hs) && i+2 < n) {
                         WCHAR ls = *(unsigned short *)(buff+i+2);
                         if (IS_LOW_SURROGATE(ls)) {
                             term_keyinputw(
+<<<<<<< HEAD
                                 wgs->term, (unsigned short *)(buff+i), 2);
+=======
+                                term, (unsigned short *)(buff+i), 2);
+>>>>>>> tags/0.78
                             i += 2;
                             continue;
                         }
                     }
                     term_keyinputw(
+<<<<<<< HEAD
                         wgs->term, (unsigned short *)(buff+i), 1);
+=======
+                        term, (unsigned short *)(buff+i), 1);
+>>>>>>> tags/0.78
                 }
             }
             free(buff);
@@ -3347,9 +3650,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             }
         } else {
             char c = (unsigned char)wParam;
+<<<<<<< HEAD
             term_seen_key_event(wgs->term);
             if (wgs->ldisc)
                 term_keyinput(wgs->term, CP_ACP, &c, 1);
+=======
+            term_seen_key_event(term);
+            if (ldisc)
+                term_keyinput(term, CP_ACP, &c, 1);
+>>>>>>> tags/0.78
         }
         return 0;
       case WM_SYSCOLORCHANGE:
@@ -4280,11 +4589,19 @@ static int TranslateKey(WinGuiSeat *wgs, UINT message, WPARAM wParam,
     }
 
     if (wParam == compose_keycode) {
+<<<<<<< HEAD
         if (wgs->compose_state == 0 &&
             (HIWORD(lParam) & (KF_UP | KF_REPEAT)) == 0)
             wgs->compose_state = 1;
         else if (wgs->compose_state == 1 && (HIWORD(lParam) & KF_UP))
             wgs->compose_state = 2;
+=======
+        if (compose_state == 0 &&
+            (HIWORD(lParam) & (KF_UP | KF_REPEAT)) == 0)
+            compose_state = 1;
+        else if (compose_state == 1 && (HIWORD(lParam) & KF_UP))
+            compose_state = 2;
+>>>>>>> tags/0.78
         else
             wgs->compose_state = 0;
     } else if (wgs->compose_state == 1 && wParam != VK_CONTROL)
@@ -4592,7 +4909,11 @@ static int TranslateKey(WinGuiSeat *wgs, UINT message, WPARAM wParam,
           case VK_F20: fkey_number = 20; goto numbered_function_key;
           numbered_function_key:
             consumed_alt = false;
+<<<<<<< HEAD
             p += format_function_key((char *)p, wgs->term, fkey_number,
+=======
+            p += format_function_key((char *)p, term, fkey_number,
+>>>>>>> tags/0.78
                                      shift_state & 1, shift_state & 2,
                                      left_alt, &consumed_alt);
             if (consumed_alt)
@@ -4611,7 +4932,11 @@ static int TranslateKey(WinGuiSeat *wgs, UINT message, WPARAM wParam,
             if (shift_state & 2)
                 break;
 
+<<<<<<< HEAD
             p += format_small_keypad_key((char *)p, wgs->term, sk_key,
+=======
+            p += format_small_keypad_key((char *)p, term, sk_key,
+>>>>>>> tags/0.78
                                          shift_state & 1, shift_state & 2,
                                          left_alt, &consumed_alt);
             if (consumed_alt)
@@ -4626,7 +4951,11 @@ static int TranslateKey(WinGuiSeat *wgs, UINT message, WPARAM wParam,
           case VK_CLEAR: xkey = 'G'; goto arrow_key; /* close enough */
           arrow_key:
             consumed_alt = false;
+<<<<<<< HEAD
             p += format_arrow_key((char *)p, wgs->term, xkey, shift_state & 1,
+=======
+            p += format_arrow_key((char *)p, term, xkey, shift_state & 1,
+>>>>>>> tags/0.78
                                   shift_state & 2, left_alt, &consumed_alt);
             if (consumed_alt)
                 left_alt = false; /* supersedes the usual prefixing of Esc */
@@ -4807,6 +5136,7 @@ static int TranslateKey(WinGuiSeat *wgs, UINT message, WPARAM wParam,
 
 static void wintw_set_title(TermWin *tw, const char *title, int codepage)
 {
+<<<<<<< HEAD
     WinGuiSeat *wgs = container_of(tw, WinGuiSeat, termwin);
     wchar_t *new_window_name = dup_mb_to_wc(codepage, 0, title);
     if (!wcscmp(new_window_name, wgs->window_name)) {
@@ -4818,10 +5148,22 @@ static void wintw_set_title(TermWin *tw, const char *title, int codepage)
     if (conf_get_bool(wgs->conf, CONF_win_name_always) ||
         !IsIconic(wgs->term_hwnd))
         sw_SetWindowText(wgs->term_hwnd, wgs->window_name);
+=======
+    wchar_t *new_window_name = dup_mb_to_wc(codepage, 0, title);
+    if (!wcscmp(new_window_name, window_name)) {
+        sfree(new_window_name);
+        return;
+    }
+    sfree(window_name);
+    window_name = new_window_name;
+    if (conf_get_bool(conf, CONF_win_name_always) || !IsIconic(wgs.term_hwnd))
+        sw_SetWindowText(wgs.term_hwnd, window_name);
+>>>>>>> tags/0.78
 }
 
 static void wintw_set_icon_title(TermWin *tw, const char *title, int codepage)
 {
+<<<<<<< HEAD
     WinGuiSeat *wgs = container_of(tw, WinGuiSeat, termwin);
     wchar_t *new_icon_name = dup_mb_to_wc(codepage, 0, title);
     if (!wcscmp(new_icon_name, wgs->icon_name)) {
@@ -4833,6 +5175,17 @@ static void wintw_set_icon_title(TermWin *tw, const char *title, int codepage)
     if (!conf_get_bool(wgs->conf, CONF_win_name_always) &&
         IsIconic(wgs->term_hwnd))
         sw_SetWindowText(wgs->term_hwnd, wgs->icon_name);
+=======
+    wchar_t *new_icon_name = dup_mb_to_wc(codepage, 0, title);
+    if (!wcscmp(new_icon_name, icon_name)) {
+        sfree(new_icon_name);
+        return;
+    }
+    sfree(icon_name);
+    icon_name = new_icon_name;
+    if (!conf_get_bool(conf, CONF_win_name_always) && IsIconic(wgs.term_hwnd))
+        sw_SetWindowText(wgs.term_hwnd, icon_name);
+>>>>>>> tags/0.78
 }
 
 static void wintw_set_scrollbar(TermWin *tw, int total, int start, int page)
@@ -5134,7 +5487,11 @@ static void wintw_clip_write(
 
             for (i = 0; i < OSC4_NCOLOURS; i++) {
                 if (palette[i] != 0) {
+<<<<<<< HEAD
                     const PALETTEENTRY *pe = &wgs->logpal->palPalEntry[i];
+=======
+                    const PALETTEENTRY *pe = &logpal->palPalEntry[i];
+>>>>>>> tags/0.78
                     put_fmt(rtf, "\\red%d\\green%d\\blue%d;",
                             pe->peRed, pe->peGreen, pe->peBlue);
                 }
@@ -5684,7 +6041,11 @@ static void wintw_move(TermWin *tw, int x, int y)
     int resize_action = conf_get_int(wgs->conf, CONF_resize_action);
     if (resize_action == RESIZE_DISABLED ||
         resize_action == RESIZE_FONT ||
+<<<<<<< HEAD
         IsZoomed(wgs->term_hwnd))
+=======
+        IsZoomed(wgs.term_hwnd))
+>>>>>>> tags/0.78
         return;
 
     SetWindowPos(wgs->term_hwnd, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
@@ -5743,13 +6104,21 @@ static bool is_full_screen(WinGuiSeat *wgs)
 /* Get the rect/size of a full screen window using the nearest available
  * monitor in multimon systems; default to something sensible if only
  * one monitor is present. */
+<<<<<<< HEAD
 static bool get_fullscreen_rect(WinGuiSeat *wgs, RECT *ss)
+=======
+static bool get_fullscreen_rect(RECT *ss)
+>>>>>>> tags/0.78
 {
 #if defined(MONITOR_DEFAULTTONEAREST) && !defined(NO_MULTIMON)
     if (p_GetMonitorInfoA && p_MonitorFromWindow) {
         HMONITOR mon;
         MONITORINFO mi;
+<<<<<<< HEAD
         mon = p_MonitorFromWindow(wgs->term_hwnd, MONITOR_DEFAULTTONEAREST);
+=======
+        mon = p_MonitorFromWindow(wgs.term_hwnd, MONITOR_DEFAULTTONEAREST);
+>>>>>>> tags/0.78
         mi.cbSize = sizeof(mi);
         p_GetMonitorInfoA(mon, &mi);
 
@@ -5778,7 +6147,11 @@ static void make_full_screen(WinGuiSeat *wgs)
 
     assert(IsZoomed(wgs->term_hwnd));
 
+<<<<<<< HEAD
     if (is_full_screen(wgs))
+=======
+    if (is_full_screen())
+>>>>>>> tags/0.78
         return;
 
     /* Remove the window furniture. */
@@ -5791,8 +6164,13 @@ static void make_full_screen(WinGuiSeat *wgs)
     SetWindowLongPtr(wgs->term_hwnd, GWL_STYLE, style);
 
     /* Resize ourselves to exactly cover the nearest monitor. */
+<<<<<<< HEAD
     get_fullscreen_rect(wgs, &ss);
     SetWindowPos(wgs->term_hwnd, HWND_TOP, ss.left, ss.top,
+=======
+    get_fullscreen_rect(&ss);
+    SetWindowPos(wgs.term_hwnd, HWND_TOP, ss.left, ss.top,
+>>>>>>> tags/0.78
                  ss.right - ss.left, ss.bottom - ss.top, SWP_FRAMECHANGED);
 
     /* We may have changed size as a result */
@@ -5860,6 +6238,7 @@ static void flip_full_screen(WinGuiSeat *wgs)
 static size_t win_seat_output(Seat *seat, SeatOutputType type,
                               const void *data, size_t len)
 {
+<<<<<<< HEAD
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
     return term_data(wgs->term, data, len);
 }
@@ -5869,6 +6248,15 @@ static void wintw_unthrottle(TermWin *tw, size_t bufsize)
     WinGuiSeat *wgs = container_of(tw, WinGuiSeat, termwin);
     if (wgs->backend)
         backend_unthrottle(wgs->backend, bufsize);
+=======
+    return term_data(term, data, len);
+}
+
+static void wintw_unthrottle(TermWin *win, size_t bufsize)
+{
+    if (backend)
+        backend_unthrottle(backend, bufsize);
+>>>>>>> tags/0.78
 }
 
 static bool win_seat_eof(Seat *seat)
@@ -5878,15 +6266,23 @@ static bool win_seat_eof(Seat *seat)
 
 static SeatPromptResult win_seat_get_userpass_input(Seat *seat, prompts_t *p)
 {
+<<<<<<< HEAD
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
     SeatPromptResult spr;
     spr = cmdline_get_passwd_input(p, &wgs->cmdline_get_passwd_state, true);
     if (spr.kind == SPRK_INCOMPLETE)
         spr = term_get_userpass_input(wgs->term, p);
+=======
+    SeatPromptResult spr;
+    spr = cmdline_get_passwd_input(p, &cmdline_get_passwd_state, true);
+    if (spr.kind == SPRK_INCOMPLETE)
+        spr = term_get_userpass_input(term, p);
+>>>>>>> tags/0.78
     return spr;
 }
 
 static void win_seat_set_trust_status(Seat *seat, bool trusted)
+<<<<<<< HEAD
 {
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
     term_set_trust_status(wgs->term, trusted);
@@ -5894,6 +6290,14 @@ static void win_seat_set_trust_status(Seat *seat, bool trusted)
 
 static bool win_seat_can_set_trust_status(Seat *seat)
 {
+=======
+{
+    term_set_trust_status(term, trusted);
+}
+
+static bool win_seat_can_set_trust_status(Seat *seat)
+{
+>>>>>>> tags/0.78
     return true;
 }
 
