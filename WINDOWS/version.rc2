@@ -42,7 +42,7 @@ BEGIN
 	BLOCK "080904B0"
 	BEGIN
 	    VALUE "CompanyName",	"Simon Tatham"  /* required :/ */
-	    VALUE "ProductName",	"PuTTY suite"
+	    VALUE "ProductName",	"PuTTYNG"
 	    VALUE "FileDescription",	APPDESC
 	    VALUE "InternalName",	APPNAME
 	    VALUE "OriginalFilename",	APPNAME
@@ -53,7 +53,7 @@ BEGIN
 #else
 	    VALUE "FileVersion",	TEXTVER
 #endif
-	    VALUE "ProductVersion",	TEXTVER
+	    VALUE "ProductVersion",	"4 mRemoteNG"
 	    VALUE "LegalCopyright",	"Copyright \251 " SHORT_COPYRIGHT_DETAILS "."
 #if (!defined SNAPSHOT) && (!defined RELEASE) && (!defined PRERELEASE)
 	    /* Only if VS_FF_PRIVATEBUILD. */

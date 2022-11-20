@@ -11,9 +11,19 @@ This is a modified version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtath
 - BE_ALL_S.C
 - CMDLINE.C
 - PUTTY.H
+- version.h
+- cmake/platforms/windows.cmake
 - WINDOWS/PUTTY.RC
 - WINDOWS/VERSION.RC2 
 - WINDOWS/WINDOW.C
+
+**New PuTTY Build env**
+- Install cmake
+- open command prompt
+- cd to local copy
+- cmake .
+- cmake --build .
+- get .\Debug\PuTTYNG.exe
 
 **The following file within the project was added:**
 - WINDOWS/MAKEFILE.NG
