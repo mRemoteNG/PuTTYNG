@@ -22,21 +22,15 @@ This is a modified version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtath
 - open command prompt
 - cd to local copy
 - cmake .
-- cmake --build .
-- get .\Debug\PuTTYNG.exe
-
-**The following file within the project was added:**
-- WINDOWS/MAKEFILE.NG
-- MAKEFILE = MAKEFILE.NG (merge changes from Makefile.vc)
-- rename putty.exe to puttyng.exe
-- change the "all" target to only build puttyng.exe
+- cmake --build . --config Release
+- get .\Release\PuTTYNG.exe
 
 **To update PuTTYNG from the original repository:**
 - git remote add putty https://git.tartarus.org/simon/putty.git
 - git fetch --tags
 - git remote update putty
 - git checkout master
-- git merge tags/0.76
+- git merge tags/0.{version}
 - git push master
 
 After that create a new tag from within GitHub to trigger the AppVeyor release build.
