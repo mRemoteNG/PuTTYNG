@@ -226,6 +226,11 @@ static int compose_state = 0;
 
 static UINT wm_mousewheel = WM_MOUSEWHEEL;
 
+#ifdef PUTTYNG
+HWND hwnd_parent_main = NULL;
+HWND hwnd_last_active = NULL;
+#endif
+
 #define IS_HIGH_VARSEL(wch1, wch2) \
     ((wch1) == 0xDB40 && ((wch2) >= 0xDD00 && (wch2) <= 0xDDEF))
 #define IS_LOW_VARSEL(wch) \
@@ -536,6 +541,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     hinst = inst;
     hprev = prev;
 
+#ifdef PUTTYNG
+    term = NULL; // Make sure that term is initialized to NULL before the window is created so that we can check for it later
+#endif // PUTTYNG
+
     sk_init();
 
     init_common_controls();
@@ -630,6 +639,13 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         if (conf_get_bool(conf, CONF_sunken_edge))
             exwinmode |= WS_EX_CLIENTEDGE;
 
+#ifdef PUTTYNG
+        if (hwnd_parent != 0)
+        {
+            winmode &= ~(WS_POPUPWINDOW | WS_THICKFRAME);
+        }
+#endif
+
 #ifdef TEST_ANSI_WINDOW
         /* For developer testing of ANSI window support, pretend
          * CreateWindowExW failed */
@@ -668,6 +684,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         memset(&dpi_info, 0, sizeof(struct _dpi_info));
         init_dpi_info();
         sfree(uappname);
+
+#ifdef PUTTYNG
+        if (hwnd_parent != 0)
+        {
+            SetParent(wgs.term_hwnd, (HWND)hwnd_parent); // Focus doesn't work correctly if this is passed into CreateWindow, so set it separately.
+            hwnd_parent_main = GetAncestor((HWND)hwnd_parent, GA_ROOTOWNER); // the top level ancestor of hwnd_parent
+            SetWindowLong(wgs.term_hwnd, GWL_STYLE, winmode);
+        }
+#endif
     }
 
     /*
@@ -2434,6 +2459,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
             /* Enable or disable the scroll bar, etc */
             {
+#ifdef PUTTYNG
+                if (hwnd_parent == 0) {
+#endif
                 LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
                 LONG nexflag, exflag =
                     GetWindowLongPtr(hwnd, GWL_EXSTYLE);
@@ -2488,6 +2516,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
                     init_lvl = 2;
                 }
+#ifdef PUTTYNG
+                }
+#endif
             }
 
             /* Oops */
@@ -2729,6 +2760,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             wp = wParam; lp = lParam;
             last_mousemove = WM_MOUSEMOVE;
         }
+
+#ifdef PUTTYNG
+        {
+            GUITHREADINFO thread_info;
+            thread_info.cbSize = sizeof(thread_info);
+            GetGUIThreadInfo(NULL, &thread_info);
+            hwnd_last_active = thread_info.hwndActive;
+        }
+#endif
+
         /*
          * Add the mouse position and message time to the random
          * number noise.
@@ -2873,7 +2914,15 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_NETEVENT:
         winselgui_response(wParam, lParam);
         return 0;
+#ifdef PUTTYNG
+      case WM_MOUSEACTIVATE:
+          if (hwnd_parent != 0 && hwnd_last_active != hwnd_parent_main)
+              BringWindowToTop(hwnd_parent_main);
+#endif
       case WM_SETFOCUS:
+#ifdef PUTTYNG
+          if (!term) break; // We might get here before term_init is called
+#endif
         term_set_focus(term, true);
         CreateCaret(hwnd, caretbm, font_width, font_height);
         ShowCaret(hwnd);
@@ -3007,10 +3056,21 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         fullscr_on_max = true;
         break;
       case WM_MOVE:
+#ifdef PUTTYNG
+          if (!term) break; // We might get here before term_init is called
+#endif
         term_notify_window_pos(term, LOWORD(lParam), HIWORD(lParam));
         sys_cursor_update();
         break;
       case WM_SIZE:
+#ifdef PUTTYNG
+          if (!term) break; // We might get here before term_init is called
+          if (hwnd_parent != 0)
+          {
+              wParam = SIZE_MAXIMIZED;
+              was_zoomed = 0;
+          }
+#endif
         resize_action = conf_get_int(conf, CONF_resize_action);
 #ifdef RDB_DEBUG_PATCH
         debug("WM_SIZE %s (%d,%d)\n",
