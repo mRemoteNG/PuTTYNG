@@ -19,6 +19,7 @@ echo.
 echo configuring...
 REM ".." here because we're in the windows dir and cmake works off of the root dir
 cmake -G "Visual Studio 17 2022" -A Win32 ..
+IF %ERRORLEVEL% NEQ 0 (echo Error during configuration && exit /b %ERRORLEVEL% )
 echo.
 echo Building...
 cmake --build .. --config Release --target putty
