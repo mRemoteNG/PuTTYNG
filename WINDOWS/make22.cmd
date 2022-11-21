@@ -29,6 +29,6 @@ cmake --build . --config Release --target putty
 IF %ERRORLEVEL% NEQ 0 (echo Error during building && exit /b %ERRORLEVEL% )
 echo.
 echo Renaming...
-rename ..\Release\putty.exe PuTTYNG.exe
+rename Release\putty.exe PuTTYNG.exe
 echo Finished
 echo.
