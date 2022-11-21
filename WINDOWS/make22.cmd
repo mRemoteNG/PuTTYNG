@@ -24,5 +24,7 @@ echo.
 echo Building...
 cmake --build .. --config Release --target putty
 echo.
+echo Renaming...
+rename ..\Release\putty.exe PuTTYNG.exe
 echo Finished
 echo.
