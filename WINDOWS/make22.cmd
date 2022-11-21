@@ -16,9 +16,11 @@ call "%_VSPATHBASE%\Common7\Tools\VsDevCmd.bat"
 echo.
 call "%_VSPATHBASE%\Common7\Tools\vsdevcmd\ext\vcvars.bat"
 echo.
-echo Building...
+echo configuring...
 REM ".." here because we're in the windows dir and cmake works off of the root dir
-cmake ..
+cmake -G "Visual Studio 17 2022" -A Win32 ..
+echo.
+echo Building...
 cmake --build .. --config Release --target putty
 echo.
 echo Finished
