@@ -19,7 +19,7 @@ echo.
 echo Building...
 REM ".." here because we're in the windows dir and cmake works off of the root dir
 cmake ..
-cmake --build .. --config Release
+cmake --build .. --config Release --target putty
 echo.
 echo Finished
 echo.
