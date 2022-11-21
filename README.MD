@@ -4,8 +4,7 @@ This is a modified version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtath
 
 | Branch | Build |
 |:-----------------: |:-------------------:|
-| `Main` | [![Build status](https://ci.appveyor.com/api/projects/status/lbux84r7mt5fh4ar/branch/master?svg=true)](https://ci.appveyor.com/project/mremoteng/puttyng/branch/main) |
-| `Develop` | [![Build status](https://ci.appveyor.com/api/projects/status/lbux84r7mt5fh4ar/branch/master?svg=true)](https://ci.appveyor.com/project/mremoteng/puttyng/branch/develop) |
+| `Master` | [![Build status](https://ci.appveyor.com/api/projects/status/cv5of42aqanpr7l8?svg=true)](https://ci.appveyor.com/project/mremoteng/puttyng-publish) |
 
 **The following files within the project were modified:**
 - BE_ALL_S.C
