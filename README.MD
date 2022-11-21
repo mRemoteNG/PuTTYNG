@@ -21,8 +21,15 @@ This is a modified version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtath
 - open command prompt
 - cd to local copy
 - cmake .
-- cmake --build . --config Release
-- get .\Release\PuTTYNG.exe
+- cmake --build . --config Release --target putty
+
+OR
+
+- cd to local copy\WINDOWS
+- make22.cmd
+
+Build output: Release\PuTTYNG.exe
+
 
 **To update PuTTYNG from the original repository:**
 - git remote add putty https://git.tartarus.org/simon/putty.git
