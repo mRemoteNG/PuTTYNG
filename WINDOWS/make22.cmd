@@ -16,14 +16,10 @@ call "%_VSPATHBASE%\Common7\Tools\VsDevCmd.bat"
 echo.
 call "%_VSPATHBASE%\Common7\Tools\vsdevcmd\ext\vcvars.bat"
 echo.
-echo Cleaning...
-"%_VSPATHBASE%\SDK\ScopeCppSDK\vc15\VC\bin\nmake.exe" -f MAKEFILE.NG clean
-echo.
 echo Building...
-"%_VSPATHBASE%\SDK\ScopeCppSDK\vc15\VC\bin\nmake.exe" -f MAKEFILE.NG VER="/DNG_VER_MAJOR=0 /DNG_VER_MINOR=78 /DNG_VER_BUILD=0 /DNG_VER_REVISION=0"
-echo.
-echo Set version
-start /b "" "..\rcedit-x64.exe" %~dp0PuTTYNG.exe --set-file-version "0.78.0" --set-product-version "4 RemoteNG"
+REM ".." here because we're in the windows dir and cmake works off of the root dir
+cmake ..
+cmake --build .. --config Release
 echo.
 echo Finished
 echo.
