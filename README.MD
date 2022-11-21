@@ -8,6 +8,7 @@ This is a modified version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtath
 
 **The following files within the project were modified:**
 - BE_ALL_S.C
+- CMakeLists.txt
 - CMDLINE.C
 - PUTTY.H
 - version.h
