@@ -104,7 +104,7 @@ if(WINELIB)
   set(LFLAG_MANIFEST_NO "")
 elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC" OR
        CMAKE_C_COMPILER_FRONTEND_VARIANT MATCHES "MSVC")
-  set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /nologo /C1252 /DPUTTYNG")
+  set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /nologo /C1252")
   set(LFLAG_MANIFEST_NO "/manifest:no")
 else()
   set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -c1252")
@@ -166,7 +166,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
   #    something _else_ const should make no difference.
 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
-/wd4244 /wd4267 /wd4018 /wd4146 /wd4293 /wd4090 /DPUTTYNG")
+/wd4244 /wd4267 /wd4018 /wd4146 /wd4293 /wd4090")
 endif()
 
 if(CMAKE_C_COMPILER_FRONTEND_VARIANT MATCHES "MSVC")

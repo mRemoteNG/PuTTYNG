@@ -255,7 +255,7 @@ static SeatPromptResult tempseat_confirm_ssh_host_key(
 }
 
 static SeatPromptResult tempseat_confirm_weak_crypto_primitive(
-    Seat *seat, const char *algtype, const char *algname,
+    Seat *seat, SeatDialogText *text,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     unreachable("confirm_weak_crypto_primitive "
@@ -263,7 +263,7 @@ static SeatPromptResult tempseat_confirm_weak_crypto_primitive(
 }
 
 static SeatPromptResult tempseat_confirm_weak_cached_hostkey(
-    Seat *seat, const char *algname, const char *betteralgs,
+    Seat *seat, SeatDialogText *text,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     unreachable("confirm_weak_cached_hostkey "
@@ -286,6 +286,17 @@ static void tempseat_connection_fatal(Seat *seat, const char *message)
      * it's a bug.
      */
     unreachable("connection_fatal should never be called on TempSeat");
+}
+
+static void tempseat_nonfatal(Seat *seat, const char *message)
+{
+    /*
+     * Non-fatal errors specific to a Seat should also not occur,
+     * because those will be for things like I/O errors writing the
+     * host key collection, and a backend's not _doing_ that when we
+     * haven't connected it to the host yet.
+     */
+    unreachable("nonfatal should never be called on TempSeat");
 }
 
 static bool tempseat_eof(Seat *seat)
@@ -327,6 +338,7 @@ static const struct SeatVtable tempseat_vt = {
     .notify_remote_exit = tempseat_notify_remote_exit,
     .notify_remote_disconnect = tempseat_notify_remote_disconnect,
     .connection_fatal = tempseat_connection_fatal,
+    .nonfatal = tempseat_nonfatal,
     .update_specials_menu = tempseat_update_specials_menu,
     .get_ttymode = tempseat_get_ttymode,
     .set_busy_status = tempseat_set_busy_status,
