@@ -6,38 +6,27 @@ This is a modified version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtath
 |:-----------------: |:-------------------:|
 | `Master` | [![Build status](https://ci.appveyor.com/api/projects/status/cv5of42aqanpr7l8?svg=true)](https://ci.appveyor.com/project/mremoteng/puttyng-publish) |
 
-**The following files within the project were modified:**
-- BE_ALL_S.C
-- CMakeLists.txt
+After reviewing changes I decide to dismiss putty files from our repository as almost no changes in them are done
+some small changes now are made by script, in feature will try to avoid even such...
+
+So just run PuTTYNG.ps1 and it will do all for you! 
+
+Script will clone https://git.tartarus.org/simon/putty.git and then do changes mentioned below:
+
+**The following files within the project will be modified:**
 - CMDLINE.C
 - PUTTY.H
 - version.h
-- cmake/platforms/windows.cmake
-- WINDOWS/PUTTY.RC
-- WINDOWS/VERSION.RC2 
-- WINDOWS/WINDOW.C
 
 **New PuTTY Build env**
 - Install cmake
 - open command prompt
-- cd to local copy
+- cd to local copy of putty
 - cmake .
 - cmake --build . --config Release --target putty
 
 OR
 
-- cd to local copy\WINDOWS
-- make22.cmd
+- run make22.cmd
 
-Build output: Release\PuTTYNG.exe
-
-
-**To update PuTTYNG from the original repository:**
-- git remote add putty https://git.tartarus.org/simon/putty.git
-- git fetch --tags
-- git remote update putty
-- git checkout master
-- git merge tags/0.{version}
-- git push master
-
-After that create a new tag from within GitHub to trigger the AppVeyor release build.
+Build output will be in: putty\Release\PuTTYNG.exe
