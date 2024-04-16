@@ -64,6 +64,12 @@ write-host "/===================================================================
 write-host "/ This will make a some changes in original putty files to make it compatible with mRemoteNG /"
 write-host "/============================================================================================/"
 write-host ""
+$workFolder = "$PSScriptRoot\putty"
+
+#In case its exists, do delete incase of new version
+if (Test-Path -LiteralPath $workFolder) {
+      Remove-Item -LiteralPath $workFolder -Verbose -Recurse -WhatIf
+    }
 
 #clone putty into current directory
 try { 
@@ -73,12 +79,19 @@ catch {
      Write-CustomError -UserMessage 'There was an error' -ErrorObject $_ -FullDetail
 }
 
-$workFolder = "$PSScriptRoot\putty"
+#Get version of last update
+cd putty
+$getLastTag = git.exe describe --tags --match="*.*" --abbrev=0 HEAD 2>&1
+cd ..
+
 $workFile = "$workFolder\version.h"
+$setNewVersion = $getLastTag.split(".")[0] + "," + $getLastTag.split(".")[1] + ",0,0"
+write-host "Version: " $setNewVersion
+
 #Change version data
-(Get-Content $workFile).Replace('Unidentified build', 'Release 0.80 mRemoteNG') | Set-Content $workFile
+(Get-Content $workFile).Replace('Unidentified build', 'Release '+ $getLastTag + ' mRemoteNG') | Set-Content $workFile
 (Get-Content $workFile).Replace('-Unidentified-Local-Build', '-Release-mRemoteNG-Build') | Set-Content $workFile
-(Get-Content $workFile).Replace('0,0,0,0', '0,80,0,0') | Set-Content $workFile
+(Get-Content $workFile).Replace('0,0,0,0', $setNewVersion) | Set-Content $workFile
 
 #Add mRemoteNG required changes
 $workFile = "$workFolder\cmdline.c"
