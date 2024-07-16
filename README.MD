@@ -28,6 +28,6 @@ Script will clone https://git.tartarus.org/simon/putty.git and then do changes m
 
 OR
 
-- run make22.cmd
+- run PUTTYNG.ps1
 
 Build output will be in: putty\Release\PuTTYNG.exe
