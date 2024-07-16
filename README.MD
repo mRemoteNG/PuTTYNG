@@ -17,6 +17,7 @@ Script will clone https://git.tartarus.org/simon/putty.git and then do changes m
 - CMDLINE.C
 - PUTTY.H
 - version.h
+- window.c
 
 **New PuTTY Build env**
 - Install cmake
