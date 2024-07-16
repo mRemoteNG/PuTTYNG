@@ -28,6 +28,6 @@ Script will clone https://git.tartarus.org/simon/putty.git and then do changes m
 
 OR
 
-- run PUTTYNG.ps1
+- run PuTTYNG.ps1
 
 Build output will be in: putty\Release\PuTTYNG.exe

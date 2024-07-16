@@ -209,6 +209,7 @@ if (Test-Path -LiteralPath $workFolder) {
     #===================================================================================================
 
     # run cmake
+    Write-host "Build has been started"
     try { 
           Start-Process -FilePath "make22.cmd" -Wait 
      }
@@ -219,6 +220,6 @@ if (Test-Path -LiteralPath $workFolder) {
 }
 else
 {
-    Write-Host "Clone seems not succesfull, check internet connection"
+    Write-Host "Cloning seems not succesfull, please check internet connection"
 }
 write-host ""
