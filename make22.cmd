@@ -22,7 +22,7 @@ echo.
 call "%_VSPATHBASE%\Common7\Tools\vsdevcmd\ext\vcvars.bat"
 echo.
 echo configuring...
-cmake -G "Visual Studio 17 2022" -A Win32 .
+cmake -G "Visual Studio 17 2022" -A x64 .
 IF %ERRORLEVEL% NEQ 0 (echo Error during configuration && exit /b %ERRORLEVEL% )
 echo.
 echo Building...
