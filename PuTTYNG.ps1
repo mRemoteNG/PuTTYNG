@@ -98,6 +98,13 @@ if (Test-Path -LiteralPath $workFolder) {
 		    hwnd_parent = atoi(value);
 		    return 2;
 	    }
+        if (!strcmp(p, "-auth-plugin") || !strcmp(p, "-auth_plugin")) {
+            RETURN(2);
+            UNAVAILABLE_IN(TOOLTYPE_NONNETWORK);
+            SAVEABLE(0);
+            conf_set_str(conf, CONF_auth_plugin, value);
+            return 2;
+        }
     #endif
 
     if (!strcmp(p, "-load")) {'
@@ -211,6 +218,10 @@ if (Test-Path -LiteralPath $workFolder) {
     # run cmake
     Write-host "Build has been started"
     try { 
+                # Ensure MSVC and CMake see the PUTTYNG define
+        $env:CL = "/DPUTTYNG " + $env:CL
+        $env:CMAKE_C_FLAGS = "/DPUTTYNG"
+        $env:CMAKE_CXX_FLAGS = "/DPUTTYNG"
           Start-Process -FilePath "make22.cmd" -Wait 
      }
     catch {
