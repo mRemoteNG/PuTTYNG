@@ -4,11 +4,11 @@ This is a modified version of [PuTTY](https://www.chiark.greenend.org.uk/~sgtath
 
 | Branch | Build |
 |:-----------------: |:-------------------:|
-| `master` | [![Build PuTTYNG](https://github.com/jafin/PuTTYNG/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/jafin/PuTTYNG/actions/workflows/build.yml) |
+| `master` | [![Build PuTTYNG](https://github.com/mRemoteNG/PuTTYNG/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/mRemoteNG/PuTTYNG/actions/workflows/build.yml) |
 
 ## Download
 
-Prebuilt binaries are published on the [Releases](https://github.com/jafin/PuTTYNG/releases) page,
+Prebuilt binaries are published on the [Releases](https://github.com/mRemoteNG/PuTTYNG/releases) page,
 alongside a `SHA256SUMS.txt` you can check the download against:
 
 ```powershell
