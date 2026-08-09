@@ -68,12 +68,25 @@ jobs:
           $exeName = "PuTTYNG-$version-x64.exe"
           Copy-Item putty\Release\PuTTYNG.exe "dist\$exeName"
 
-          $hash = (Get-FileHash "dist\$exeName" -Algorithm SHA256).Hash.ToLower()
-          "$hash  $exeName" | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          # PuTTY is MIT licensed, which requires the copyright and permission notice to
+          # accompany every copy of the software. Ship its licence beside the binary, and
+          # fail the build rather than publish a download without it.
+          if (-not (Test-Path putty\LICENCE)) {
+            throw "putty\LICENCE not found - refusing to publish the binary without PuTTY's licence."
+          }
+          Copy-Item putty\LICENCE dist\PuTTY-LICENCE.txt
+
+          # Checksum everything being shipped. Enumerate into a variable first so the
+          # checksum file cannot end up listing itself.
+          $sums = @(Get-ChildItem dist -File | Sort-Object Name | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          })
+          $sums | Set-Content dist\SHA256SUMS.txt -Encoding ascii
 
           "version=$version"   >> $env:GITHUB_OUTPUT
           "exe_name=$exeName"  >> $env:GITHUB_OUTPUT
-          Write-Host "Staged $exeName ($hash)"
+          Write-Host "Staged:"
+          $sums | ForEach-Object { Write-Host "  $_" }
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
@@ -111,11 +124,15 @@ jobs:
             --notes-file - <<'EOF'
           Windows x64 build of PuTTY with the mRemoteNG compatibility patches applied.
 
-          Download the `.exe` below. `SHA256SUMS.txt` contains its checksum; verify with:
+          Download the `.exe` below. `SHA256SUMS.txt` contains checksums for every file;
+          verify with:
 
           ```powershell
           Get-FileHash .\PuTTYNG-<version>-x64.exe -Algorithm SHA256
           ```
 
           The binary is **not code signed**, so Windows SmartScreen will warn on first run.
+
+          PuTTY is MIT licensed. `PuTTY-LICENCE.txt` is the upstream licence text and applies
+          to this build; please keep it with the executable if you redistribute it.
           EOF

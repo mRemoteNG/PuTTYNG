@@ -39,6 +39,11 @@ All notable changes to this project will be documented in this file.
   a breakdown of which files are changed by patch versus by the script.
 
 ### Fixed
+- Releases shipped the executable without PuTTY's licence. PuTTY is MIT licensed, which
+  requires the copyright and permission notice to accompany every copy, so the upstream
+  `LICENCE` is now published alongside the binary as `PuTTY-LICENCE.txt`. The build fails
+  rather than publishing a download without it, and `SHA256SUMS.txt` now covers every
+  file shipped rather than just the executable.
 - `PUTTYNG` was defined only by `$env:CL`. The accompanying `$env:CMAKE_C_FLAGS` and
   `$env:CMAKE_CXX_FLAGS` assignments did nothing, as CMake does not read those as
   environment variables.

@@ -17,6 +17,8 @@ Get-FileHash .\PuTTYNG-<version>-x64.exe -Algorithm SHA256
 
 The binary is not code signed, so Windows SmartScreen will warn the first time you run it.
 
+Each release also carries `PuTTY-LICENCE.txt`. See [Licence](#licence) below.
+
 ## Building it yourself
 
 Upstream PuTTY is not vendored into this repository. The build clones it fresh and applies
@@ -83,3 +85,12 @@ build that loses the `PUTTYNG` define would otherwise succeed while silently pro
 PuTTY.
 
 A manual build can be run from the Actions tab, optionally against a specific upstream PuTTY ref.
+
+## Licence
+
+PuTTY is MIT licensed, copyright Simon Tatham and contributors. The MIT licence requires the
+copyright and permission notice to accompany every copy of the software, so releases ship
+`PuTTY-LICENCE.txt` (the upstream `LICENCE` file, verbatim) next to the executable. Keep the two
+together if you redistribute the binary.
+
+When building locally the same text is at `putty\LICENCE` in the cloned tree.
