@@ -57,6 +57,14 @@ jobs:
             Write-Host "  found $marker"
           }
 
+          # mRemoteNG's PuttyTypeDetector identifies PuTTYNG by InternalName, and falls
+          # back to treating it as stock PuTTY (no embedded mode) if this is wrong.
+          $info = (Get-Item "putty\Release\PuTTYNG.exe").VersionInfo
+          if ($info.InternalName -notlike '*PuTTYNG*') {
+            throw "InternalName is '$($info.InternalName)', expected PuTTYNG - mRemoteNG would misdetect this build as stock PuTTY."
+          }
+          Write-Host "  InternalName = $($info.InternalName)"
+
       - name: Stage artifact
         id: stage
         shell: pwsh

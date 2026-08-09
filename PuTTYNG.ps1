@@ -188,25 +188,55 @@ Function Update-VersionHeader()
 
     $workFile = Join-Path $WorkFolder 'version.h'
     $content = Get-Content -LiteralPath $workFile -Raw
+    $changed = $false
 
+    # The version strings and the APPNAME override are guarded separately, so a tree
+    # stamped by an older revision of this script still picks up the APPNAME fix.
     if ($content.Contains('mRemoteNG')) {
-        Write-Host "  version.h already stamped, skipping."
-        return
+        Write-Host "  version.h version strings already stamped, skipping."
     }
-    if (-not $content.Contains('Unidentified build')) {
+    elseif (-not $content.Contains('Unidentified build')) {
         throw "Anchor 'Unidentified build' not found in '$workFile' - upstream has changed the version header."
     }
+    else {
+        $setNewVersion = $VersionTag.split(".")[0] + "," + $VersionTag.split(".")[1] + ",0,1"
 
-    $setNewVersion = $VersionTag.split(".")[0] + "," + $VersionTag.split(".")[1] + ",0,1"
+        #Change version data
+        $content = $content.Replace('Unidentified build', 'Release ' + $VersionTag + ' mRemoteNG')
+        $content = $content.Replace('-Unidentified-Local-Build', '-Release-mRemoteNG-Build')
+        $content = $content.Replace('0,0,0,0', $setNewVersion)
+        $changed = $true
+        Write-Host "  version.h stamped as 'Release $VersionTag mRemoteNG'."
+    }
 
-    #Change version data
-    $content = $content.Replace('Unidentified build', 'Release ' + $VersionTag + ' mRemoteNG')
-    $content = $content.Replace('-Unidentified-Local-Build', '-Release-mRemoteNG-Build')
-    $content = $content.Replace('0,0,0,0', $setNewVersion)
+    # PuTTY's version resource takes InternalName and OriginalFilename from the APPNAME
+    # macro (windows/version.rc2). windows/putty.rc defines APPNAME as "PuTTY" before
+    # putty-common.rc2 -> version.rc2 pulls in version.h, so redefining it here lands
+    # between that definition and its use.
+    #
+    # This matters because mRemoteNG's PuttyTypeDetector identifies PuTTYNG by
+    # InternalName containing "PuTTYNG", and uses that to enable embedded mode
+    # (-hwndparent). Without the override the build reports InternalName "PuTTY" and is
+    # misdetected as stock PuTTY. #undef first so the redefinition is not a compiler
+    # warning. Thanks to @robertpopa22 for diagnosing this (mRemoteNG/PuTTYNG#7).
+    if ($content.Contains('#define APPNAME "PuTTYNG"')) {
+        Write-Host "  version.h already overrides APPNAME, skipping."
+    }
+    else {
+        $newline = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+        $content = $content.TrimEnd("`r", "`n") + $newline + $newline +
+            '/* Override APPNAME so the version resource reports InternalName = PuTTYNG.' + $newline +
+            '   mRemoteNG detects PuTTYNG by that field to enable embedded mode. */' + $newline +
+            '#undef APPNAME' + $newline +
+            '#define APPNAME "PuTTYNG"' + $newline
+        $changed = $true
+        Write-Host "  version.h APPNAME overridden to 'PuTTYNG'."
+    }
 
-    # -NoNewline: $content already carries the file's own trailing newline.
-    Set-Content -LiteralPath $workFile -Value $content -NoNewline
-    Write-Host "  version.h stamped as 'Release $VersionTag mRemoteNG'."
+    if ($changed) {
+        # -NoNewline: $content already carries its own trailing newline.
+        Set-Content -LiteralPath $workFile -Value $content -NoNewline
+    }
 }
 
 #===================================================================================================

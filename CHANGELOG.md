@@ -39,6 +39,14 @@ All notable changes to this project will be documented in this file.
   a breakdown of which files are changed by patch versus by the script.
 
 ### Fixed
+- The build reported `InternalName` and `OriginalFilename` as `PuTTY` rather than
+  `PuTTYNG`. PuTTY's version resource takes both from the `APPNAME` macro, which
+  `windows/putty.rc` defines as `"PuTTY"` before `version.rc2` includes `version.h`;
+  the script never overrode it. mRemoteNG's `PuttyTypeDetector` identifies PuTTYNG by
+  `InternalName`, so builds were misdetected as stock PuTTY and embedded mode
+  (`-hwndparent`) did not activate. `version.h` now undefines and redefines `APPNAME`,
+  and CI asserts the resulting `InternalName`. Diagnosed by @robertpopa22 in
+  mRemoteNG/PuTTYNG#7.
 - Releases shipped the executable without PuTTY's licence. PuTTY is MIT licensed, which
   requires the copyright and permission notice to accompany every copy, so the upstream
   `LICENCE` is now published alongside the binary as `PuTTY-LICENCE.txt`. The build fails
