@@ -1,0 +1,121 @@
+name: Build PuTTYNG
+
+on:
+  workflow_dispatch:
+    inputs:
+      putty_ref:
+        description: "Upstream PuTTY tag/branch/commit to build (blank = default branch)"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out PuTTYNG
+        uses: actions/checkout@v4
+
+      # PuTTYNG.ps1 is the single build definition, shared with local builds. It finds
+      # the runner's Visual Studio through vswhere, clones upstream PuTTY, applies
+      # patches/*.patch and builds. The upstream clone is deliberately NOT shallow:
+      # git describe needs the tag history for version stamping, and git apply --3way
+      # needs the pre-image blobs to fall back to a three-way merge when upstream has
+      # moved. A full clone of putty is ~85 MB and takes about 15 seconds.
+      - name: Build PuTTYNG.exe
+        shell: pwsh
+        env:
+          PUTTY_REF: ${{ inputs.putty_ref }}
+        run: |
+          $scriptArgs = @{}
+          if ($env:PUTTY_REF) { $scriptArgs.PuttyRef = $env:PUTTY_REF }
+          .\PuTTYNG.ps1 @scriptArgs
+
+      # The mRemoteNG changes are all inside #ifdef PUTTYNG, so a build that fails to
+      # define PUTTYNG still succeeds - it just silently produces stock PuTTY. Assert
+      # the option strings really are in the binary rather than trusting the exit code.
+      - name: Verify the mRemoteNG changes are in the binary
+        shell: pwsh
+        run: |
+          $ascii = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("putty\Release\PuTTYNG.exe"))
+          foreach ($marker in '-hwndparent', '-auth-plugin', 'mRemoteNG') {
+            if (-not $ascii.Contains($marker)) {
+              throw "Built binary is missing '$marker' - the PUTTYNG define did not reach the compiler."
+            }
+            Write-Host "  found $marker"
+          }
+
+      - name: Stage artifact
+        id: stage
+        shell: pwsh
+        run: |
+          $version = (git -C putty describe --tags --match "*.*" --abbrev=0 HEAD).Trim()
+          if (-not $version) { throw "Could not determine the upstream PuTTY version." }
+
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $exeName = "PuTTYNG-$version-x64.exe"
+          Copy-Item putty\Release\PuTTYNG.exe "dist\$exeName"
+
+          $hash = (Get-FileHash "dist\$exeName" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $exeName" | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+
+          "version=$version"   >> $env:GITHUB_OUTPUT
+          "exe_name=$exeName"  >> $env:GITHUB_OUTPUT
+          Write-Host "Staged $exeName ($hash)"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PuTTYNG-${{ steps.stage.outputs.version }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    # Only tagged pushes publish a release; branch and PR builds stop at the artifact.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: PuTTYNG-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "PuTTYNG $GITHUB_REF_NAME" \
+            --notes-file - <<'EOF'
+          Windows x64 build of PuTTY with the mRemoteNG compatibility patches applied.
+
+          Download the `.exe` below. `SHA256SUMS.txt` contains its checksum; verify with:
+
+          ```powershell
+          Get-FileHash .\PuTTYNG-<version>-x64.exe -Algorithm SHA256
+          ```
+
+          The binary is **not code signed**, so Windows SmartScreen will warn on first run.
+          EOF

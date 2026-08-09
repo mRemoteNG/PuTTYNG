@@ -1,0 +1,6 @@
+# Working clone of upstream PuTTY. Deleted and recreated by PuTTYNG.ps1 on every run,
+# and it carries its own .git, so it must never be committed here.
+/putty/
+
+# Local artifact staging, mirroring what the GitHub Actions workflow produces.
+/dist/

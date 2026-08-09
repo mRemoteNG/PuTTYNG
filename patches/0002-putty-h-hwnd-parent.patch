@@ -1,0 +1,16 @@
+diff --git a/putty.h b/putty.h
+index 697892cf..b184bf28 100644
+--- a/putty.h
++++ b/putty.h
+@@ -813,6 +813,11 @@ extern const int be_default_protocol;
+  */
+ extern const char *const appname;
+ 
++    #ifdef PUTTYNG
++    int hwnd_parent;
++    #define IsZoomed(hWnd) TRUE
++    #endif // PUTTYNG
++
+ /*
+  * Used by callback.c; declared up here so that prompts_t can use it
+  */

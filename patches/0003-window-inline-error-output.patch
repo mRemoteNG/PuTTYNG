@@ -1,0 +1,47 @@
+diff --git a/windows/window.c b/windows/window.c
+index 37a20e8e..779eaa41 100644
+--- a/windows/window.c
++++ b/windows/window.c
+@@ -1177,11 +1177,18 @@ static void win_seat_connection_fatal(Seat *seat, const char *msg)
+ {
+     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
+     char *title = dupprintf("%s Fatal Error", appname);
+-    show_mouseptr(wgs, true);
+-    MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+-    sfree(title);
++    win_seat_output(seat,true,"\r\n\r\n",4);
++        win_seat_output(seat,0,"------------------- ",20);
++        win_seat_output(seat,0,title,strlen(title));
++        win_seat_output(seat,0," ------------------\r\n",22);
++        win_seat_output(seat,0,"- ",2);
++        win_seat_output(seat,0,msg,strlen(msg));
++        win_seat_output(seat,0,"\r\n\r\n",4);
++        //show_mouseptr(wgs, true);
++        //MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
++        sfree(title);
+ 
+-    if (conf_get_int(wgs->conf, CONF_close_on_exit) == FORCE_ON)
++        if (conf_get_int(wgs->conf, CONF_close_on_exit) == FORCE_ON)
+         PostQuitMessage(1);
+     else {
+         queue_toplevel_callback(close_session, wgs);
+@@ -1195,9 +1202,16 @@ static void win_seat_nonfatal(Seat *seat, const char *msg)
+ {
+     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
+     char *title = dupprintf("%s Error", appname);
+-    show_mouseptr(wgs, true);
+-    MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+-    sfree(title);
++    win_seat_output(seat,true,"\r\n\r\n",4);
++        win_seat_output(seat,0,"------------------- ",20);
++        win_seat_output(seat,0,title,strlen(title));
++        win_seat_output(seat,0," ------------------\r\n",22);
++        win_seat_output(seat,0,"- ",2);
++        win_seat_output(seat,0,msg,strlen(msg));
++        win_seat_output(seat,0,"\r\n\r\n",4);
++        //show_mouseptr(wgs, true);
++        //MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
++        sfree(title);
+ }
+ 
+ static HWND find_window_for_msgbox(void)
