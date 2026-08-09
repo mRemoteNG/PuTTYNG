@@ -32,6 +32,11 @@ All notable changes to this project will be documented in this file.
   idempotent, and fails loudly with conflict markers instead of silently misapplying.
   The patches were verified to apply cleanly to both 0.83 and 0.84.
 - `.gitignore` now covers the in-source CMake build output (`Release/`, `x64/`, `*.slnx`).
+- README refreshed: the build badge now points at GitHub Actions instead of AppVeyor, and
+  the build instructions match the current script. The old "install cmake, run `cmake .`"
+  steps were misleading, as a manual build without `/DPUTTYNG` silently produces stock
+  PuTTY. Adds download and checksum verification instructions, the script parameters, and
+  a breakdown of which files are changed by patch versus by the script.
 
 ### Fixed
 - `PUTTYNG` was defined only by `$env:CL`. The accompanying `$env:CMAKE_C_FLAGS` and
