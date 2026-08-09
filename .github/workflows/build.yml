@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Check out PuTTYNG
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # PuTTYNG.ps1 is the single build definition, shared with local builds. It finds
       # the runner's Visual Studio through vswhere, clones upstream PuTTY, applies
@@ -76,7 +76,7 @@ jobs:
           Write-Host "Staged $exeName ($hash)"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PuTTYNG-${{ steps.stage.outputs.version }}
           path: dist/
@@ -93,7 +93,7 @@ jobs:
 
     steps:
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: PuTTYNG-*
           merge-multiple: true
