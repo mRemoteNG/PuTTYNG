@@ -4,8 +4,8 @@
     Clones upstream PuTTY, applies the mRemoteNG patches, and builds PuTTYNG.exe.
 .DESCRIPTION
     This is the single entry point for producing PuTTYNG.exe. It replaces the old
-    two-script arrangement (PuTTYNG.ps1 + make22.cmd); the MSVC toolchain discovery
-    and CMake invocation that used to live in make22.cmd are now the
+    two-script arrangement (PuTTYNG.ps1 + make26.cmd); the MSVC toolchain discovery
+    and CMake invocation that used to live in make26 .cmd are now the
     Import-VisualStudioEnvironment and Invoke-PuttyBuild functions below.
 
     The source changes live in .\patches as real unified diffs and are applied with
@@ -319,9 +319,10 @@ Function Invoke-PuttyBuild()
 .SYNOPSIS
     Configures and builds the putty target, then renames the result.
 .DESCRIPTION
-    No -G generator is passed, so CMake selects the newest Visual Studio generator it
-    finds. Hardcoding one (as make22.cmd did with "Visual Studio 17 2022") breaks every
-    time the installed Visual Studio version changes.
+    No -G generator is passed, so CMake uses CMAKE_GENERATOR when supplied, otherwise
+    selects the newest Visual Studio generator it finds. Visual Studio and Ninja
+    Multi-Config generators use -A x64 and configuration subdirectories; other
+    generators use CMAKE_BUILD_TYPE and write directly to the build directory.
 #>
     [CmdletBinding()]
     param(
@@ -330,14 +331,19 @@ Function Invoke-PuttyBuild()
 
         [string]$Configuration = 'Release',
 
-        [string]$OutputName = 'PuTTYNG.exe'
+        [string]$OutputName = 'PuTTYNG.exe',
+
+        [ref]$ProducedExe
     )
 
     # The CL variable is prepended to every cl.exe command line, which is how the
-    # PUTTYNG define reaches the #ifdef blocks introduced by the patches.
+    # PUTTYNG define reaches the #ifdef blocks introduced by the patches. Add it
+    # only once so rerunning this script in the same session does not accumulate it.
     # (Setting CMAKE_C_FLAGS as an environment variable does nothing - CMake does not
     # read it - so that is deliberately not attempted here.)
-    $env:CL = ('/DPUTTYNG ' + $env:CL).Trim()
+    if ($env:CL -notmatch '(?i)(?:^|\s)/DPUTTYNG(?:=\S+|\s|$)') {
+        $env:CL = ('/DPUTTYNG ' + $env:CL).Trim()
+    }
 
     # MSBuild keeps worker nodes alive for about 15 minutes after a build to speed up
     # the next one, and those processes hold open handles to the build tree. That makes
@@ -348,26 +354,50 @@ Function Invoke-PuttyBuild()
     Push-Location -LiteralPath $SourceDir
     try {
         Write-Host "`nConfiguring..."
-        & cmake -A x64 .
+        $requestedGenerator = $env:CMAKE_GENERATOR
+        $usesMultiConfigGenerator = [string]::IsNullOrWhiteSpace($requestedGenerator) `
+            -or $requestedGenerator -like 'Visual Studio *' `
+            -or $requestedGenerator -eq 'Ninja Multi-Config'
+        $configureArguments = @()
+        if ($usesMultiConfigGenerator) {
+            $configureArguments += '-A', 'x64'
+        }
+        else {
+            $configureArguments += "-DCMAKE_BUILD_TYPE=$Configuration"
+        }
+        $configureArguments += '.'
+        & cmake @configureArguments
         if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed (exit code $LASTEXITCODE)" }
 
+        $cache = Get-Content -LiteralPath (Join-Path $SourceDir 'CMakeCache.txt')
+        $generator = ($cache | Where-Object { $_ -match '^CMAKE_GENERATOR:INTERNAL=(.+)$' } |
+            ForEach-Object { $Matches[1] } | Select-Object -First 1)
+        $isMultiConfig = $cache -match '^CMAKE_CONFIGURATION_TYPES:STRING=.+'
+        Write-Host "Using CMake generator: $generator"
+
         Write-Host "`nBuilding..."
-        & cmake --build . --config $Configuration --target putty
+        $buildArguments = @('--build', '.', '--target', 'putty')
+        if ($isMultiConfig) { $buildArguments += '--config', $Configuration }
+        & cmake @buildArguments
         if ($LASTEXITCODE -ne 0) { throw "Build failed (exit code $LASTEXITCODE)" }
 
         Write-Host "`nRenaming..."
-        $builtExe = Join-Path $SourceDir "$Configuration\putty.exe"
+        $outputDirectory = if ($isMultiConfig) {
+            Join-Path $SourceDir $Configuration
+        }
+        else {
+            $SourceDir
+        }
+        $builtExe = Join-Path $outputDirectory 'putty.exe'
         if (-not (Test-Path -LiteralPath $builtExe)) {
             throw "Expected '$builtExe' was not produced by the build."
         }
 
-        $targetExe = Join-Path $SourceDir "$Configuration\$OutputName"
+        $targetExe = Join-Path $outputDirectory $OutputName
         # Rename-Item fails outright if the destination already exists.
         if (Test-Path -LiteralPath $targetExe) { Remove-Item -LiteralPath $targetExe -Force }
         Rename-Item -LiteralPath $builtExe -NewName $OutputName
-
-        # Deliberately no return value: cmake writes to the success stream, so anything
-        # returned here would arrive mixed in with the entire build log.
+        if ($ProducedExe) { $ProducedExe.Value = $targetExe }
     }
     finally {
         Pop-Location
@@ -392,13 +422,11 @@ if ($SkipClone) {
         exit 1
     }
     Write-Host "-SkipClone given: reusing the existing tree in '$workFolder'."
-}
-else {
+} else {
     #In case its exists, do delete incase of new version
     if (Test-Path -LiteralPath $workFolder) {
-        Write-Host "folder found, deleting to be sure we have clean original version before modifications will be applyed"
+        Write-Host "folder found, deleting to be sure we have clean original version before modifications will be applied"
         Remove-Item -LiteralPath $workFolder -Recurse -Force -ErrorAction SilentlyContinue
-
         # A locked folder is only a non-terminating error, so without this re-check the
         # script carries on and fails further down with a confusing "destination path
         # already exists" from git clone.
@@ -409,153 +437,12 @@ else {
             write-host ""
             exit 1
         }
-    #endif
-
-    if (!strcmp(p, "-load")) {'
-    (Get-Content $workFile).Replace('if (!strcmp(p, "-load")) {', $newContent) | Set-Content $workFile
-    Write-Host "Code block replaced successfully in '$workFile'."
-    #===================================================================================================
-
-    #Add mRemoteNG required changes
-    $workFile = "$workFolder\putty.h"
-    $newContent = 'extern const char *const appname;
-
-    #ifdef PUTTYNG
-    int hwnd_parent;
-    #define IsZoomed(hWnd) TRUE
-    #endif // PUTTYNG'
-    (Get-Content $workFile).Replace('extern const char *const appname;', $newContent) | Set-Content $workFile
-    Write-Host "Code block replaced successfully in '$workFile'."
-    #===================================================================================================
-
-    #Add mRemoteNG required changes
-    $workFile = "$workFolder\version.h"
-    $setNewVersion = $getLastTag.split(".")[0] + "," + $getLastTag.split(".")[1] + ",0,1"
-
-    #Change version data
-    (Get-Content $workFile).Replace('Unidentified build', 'Release '+ $getLastTag + ' mRemoteNG') | Set-Content $workFile
-    (Get-Content $workFile).Replace('-Unidentified-Local-Build', '-Release-mRemoteNG-Build') | Set-Content $workFile
-    (Get-Content $workFile).Replace('0,0,0,0', $setNewVersion) | Set-Content $workFile
-    Write-Host "Code block replaced successfully in '$workFile'."
-
-    # Fix InternalName: PuTTY uses APPNAME macro for InternalName in the .rc resource.
-    # Patch version.h to define a custom APPNAME so the compiled exe reports "PuTTYNG"
-    # instead of "PuTTY". This is needed for mRemoteNG's PuttyTypeDetector to identify
-    # the embedded PuTTYNG and enable -hwndparent (embedded window mode).
-    $versionContent = Get-Content $workFile -Raw
-    if ($versionContent -notmatch 'PUTTYNG_APPNAME') {
-        Add-Content $workFile "`n/* Override InternalName for mRemoteNG detection */`n#define APPNAME `"PuTTYNG`"`n"
-        Write-Host "Added APPNAME override to '$workFile'."
     }
-    #===================================================================================================
-
-    #Add mRemoteNG required changes
-    [string]$workFile = "$workFolder\windows\window.c"
-    [string]$existingBlockStart = 'char *title = dupprintf("%s Fatal Error", appname);'
-    [string]$existingBlockEnd = 'if (conf_get_int(wgs->conf, CONF_close_on_exit) == FORCE_ON)' 
-    [string]$newBlock  = '    win_seat_output(seat,true,"\r\n\r\n",4);
-        win_seat_output(seat,0,"------------------- ",20);
-        win_seat_output(seat,0,title,strlen(title));
-        win_seat_output(seat,0," ------------------\r\n",22);
-        win_seat_output(seat,0,"- ",2);
-        win_seat_output(seat,0,msg,strlen(msg));
-        win_seat_output(seat,0,"\r\n\r\n",4);
-        //show_mouseptr(wgs, true);
-        //MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
-        sfree(title);
-
-        '
-
-    # Read the content of the file
-    $fileContent = Get-Content -Path $workFile -Raw
-    # Find the position of the existing block start
-    $startIndex = $fileContent.IndexOf($existingBlockStart) + $existingBlockStart.Length + 1;
-
-    if ($startIndex -ge 0) {
-        # Find the end of the existing block (e.g., next empty line or closing brace)
-        $endIndex = $fileContent.IndexOf($existingBlockEnd, $startIndex)
-
-        # Remove the existing block
-        $modifiedContent = $fileContent.Remove($startIndex, $endIndex - $startIndex)
-
-        # Insert the new block after the existing block start
-        $modifiedContent = $modifiedContent.Insert($startIndex, $newBlock)
-
-        # Write the modified content back to the file
-        Set-Content -Path $workFile -Value $modifiedContent
-
-        Write-Host "Code block replaced successfully in '$workFile'."
-    } else {
-        Write-Host "Existing block start not found in the file." -ForegroundColor Red
-    }
-    #===================================================================================================
-
-    #Add mRemoteNG required changes
-    [string]$workFile = "$workFolder\windows\window.c"
-    [string]$existingBlockStart = 'char *title = dupprintf("%s Error", appname);'
-    [string]$existingBlockEnd = 'sfree(title);' 
-    [string]$newBlock  = '    win_seat_output(seat,true,"\r\n\r\n",4);
-        win_seat_output(seat,0,"------------------- ",20);
-        win_seat_output(seat,0,title,strlen(title));
-        win_seat_output(seat,0," ------------------\r\n",22);
-        win_seat_output(seat,0,"- ",2);
-        win_seat_output(seat,0,msg,strlen(msg));
-        win_seat_output(seat,0,"\r\n\r\n",4);
-        //show_mouseptr(wgs, true);
-        //MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
-        '
-
-    # Read the content of the file
-    $fileContent = Get-Content -Path $workFile -Raw
-    # Find the position of the existing block start
-    $startIndex = $fileContent.IndexOf($existingBlockStart) + $existingBlockStart.Length + 1;
-
-    if ($startIndex -ge 0) {
-        # Find the end of the existing block (e.g., next empty line or closing brace)
-        $endIndex = $fileContent.IndexOf($existingBlockEnd, $startIndex)
-
-        # Remove the existing block
-        $modifiedContent = $fileContent.Remove($startIndex, $endIndex - $startIndex)
-
-        # Insert the new block after the existing block start
-        $modifiedContent = $modifiedContent.Insert($startIndex, $newBlock)
-
-        # Write the modified content back to the file
-        Set-Content -Path $workFile -Value $modifiedContent
-
-        Write-Host "Code block replaced successfully in '$workFile'."
-    } else {
-        Write-Host "Existing block start not found in the file." -ForegroundColor Red
-    }
-    #===================================================================================================
-
-    # run cmake
-    Write-host "Build has been started"
-    try { 
-                # Ensure MSVC and CMake see the PUTTYNG define
-        $env:CL = "/DPUTTYNG " + $env:CL
-        $env:CMAKE_C_FLAGS = "/DPUTTYNG"
-        $env:CMAKE_CXX_FLAGS = "/DPUTTYNG"
-          Start-Process -FilePath "make22.cmd" -Wait 
-     }
-    catch {
-         Write-CustomError -UserMessage 'There was an error' -ErrorObject $_ -FullDetail
-    }
-
-    #Second check
-    if (-not (Test-Path -LiteralPath $workFolder)) {
-        Write-Host "Cloning seems not succesfull, please check internet connection"
-        write-host ""
+    Write-Host "Cloning upstream PuTTY into '$workFolder'."
+    & git.exe clone https://git.tartarus.org/simon/putty.git $workFolder
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Could not clone upstream PuTTY (exit code $LASTEXITCODE)." -ForegroundColor Red
         exit 1
-    }
-
-    if ($PuttyRef) {
-        Write-Host "Checking out upstream ref '$PuttyRef'..."
-        & git.exe -C $workFolder checkout --quiet $PuttyRef
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Could not check out '$PuttyRef'." -ForegroundColor Red
-            exit 1
-        }
     }
 }
 
@@ -582,8 +469,8 @@ catch {
 Write-host "`nBuild has been started"
 try {
     Import-VisualStudioEnvironment
-    Invoke-PuttyBuild -SourceDir $workFolder -Configuration $Configuration -OutputName $OutputName
-    $producedExe = Join-Path $workFolder "$Configuration\$OutputName"
+    $producedExe = $null
+    Invoke-PuttyBuild -SourceDir $workFolder -Configuration $Configuration -OutputName $OutputName -ProducedExe ([ref]$producedExe)
     Write-host "Build has been completed"
     Write-Host "Finished: $producedExe" -ForegroundColor Green
 }
