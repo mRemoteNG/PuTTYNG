@@ -66,8 +66,8 @@ has moved. A full clone takes about 15 seconds.
 | File | How | What |
 | --- | --- | --- |
 | `cmdline.c` | patch | Adds the `-hwndparent` and `-auth-plugin` / `-auth_plugin` options. |
-| `putty.h` | patch | Declares `hwnd_parent` as `extern` (defined once in `windows/window.c`), forces `IsZoomed()` true so the embedded window behaves as maximised. |
-| `windows/window.c` | patch | Defines `hwnd_parent`; writes errors into the terminal instead of a modal `MessageBox`, which would otherwise block an embedded session. |
+| `putty.h` | patch | Declares the pointer-safe `hwnd_parent` handle and forces `IsZoomed()` true so the embedded window behaves as maximised. |
+| `windows/window.c` | patch | Creates the terminal as a normal top-level window, then reparents it under `hwnd_parent` with `SetParent`/`SetWindowLongPtr` (a window cannot be created with `WS_CHILD` set directly, since `CreateWindowEx` requires a real parent HWND at creation time); writes errors into the terminal instead of a modal `MessageBox`, which would otherwise block an embedded session. |
 | `.gitignore` | patch | Ignores the in-source CMake build output. |
 | `version.h` | script | Version strings, derived from the upstream tag at build time. |
 

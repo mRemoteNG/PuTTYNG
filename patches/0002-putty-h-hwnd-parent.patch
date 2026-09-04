@@ -1,31 +1,133 @@
 diff --git a/putty.h b/putty.h
-index 697892cf..b184bf28 100644
+index 4fe5244..ac588c6 100644
 --- a/putty.h
 +++ b/putty.h
 @@ -813,6 +813,11 @@ extern const int be_default_protocol;
   */
  extern const char *const appname;
  
-+    #ifdef PUTTYNG
-+    extern int hwnd_parent;
-+    #define IsZoomed(hWnd) TRUE
-+    #endif // PUTTYNG
++#ifdef PUTTYNG
++extern uintptr_t hwnd_parent;
++#define IsZoomed(hWnd) TRUE
++#endif // PUTTYNG
 +
  /*
   * Used by callback.c; declared up here so that prompts_t can use it
   */
 diff --git a/windows/window.c b/windows/window.c
-index 37a20e8e..779eaa41 100644
+index 37a20e8..88379cb 100644
 --- a/windows/window.c
 +++ b/windows/window.c
-@@ -22,6 +22,10 @@
+@@ -22,6 +22,12 @@
  #include "win-gui-seat.h"
  #include "tree234.h"
  
 +#ifdef PUTTYNG
-+int hwnd_parent;
++uintptr_t hwnd_parent;
++static HWND hwnd_parent_main = NULL;
++static HWND hwnd_last_active = NULL;
 +#endif // PUTTYNG
 +
  #ifdef NO_MULTIMON
  #include <multimon.h>
  #endif
+@@ -564,6 +570,12 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
+         if (conf_get_bool(wgs->conf, CONF_sunken_edge))
+             exwinmode |= WS_EX_CLIENTEDGE;
+ 
++#ifdef PUTTYNG
++        if (hwnd_parent) {
++            winmode &= ~(WS_POPUPWINDOW | WS_THICKFRAME);
++        }
++#endif
++
+ #ifdef TEST_ANSI_WINDOW
+         /* For developer testing of ANSI window support, pretend
+          * CreateWindowExW failed */
+@@ -606,6 +618,23 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
+ 
+     SetWindowLongPtr(wgs->term_hwnd, GWLP_USERDATA, (LONG_PTR)wgs);
+ 
++#ifdef PUTTYNG
++    if (hwnd_parent) {
++        /* Focus doesn't work correctly if the parent is passed into
++         * CreateWindowEx, so set it separately here instead. Do this only
++         * after GWLP_USERDATA is populated above: SetParent and the style
++         * change below can synchronously dispatch WM_MOVE/WM_SIZE to
++         * WndProc, which dereferences wgs. */
++        SetParent(wgs->term_hwnd, (HWND)hwnd_parent);
++        hwnd_parent_main = GetAncestor((HWND)hwnd_parent, GA_ROOTOWNER);
++        {
++            int winmode = GetWindowLongPtr(wgs->term_hwnd, GWL_STYLE);
++            winmode &= ~(WS_POPUPWINDOW | WS_THICKFRAME);
++            SetWindowLongPtr(wgs->term_hwnd, GWL_STYLE, winmode);
++        }
++    }
++#endif
++
+     /*
+      * Initialise the fonts, simultaneously correcting the guesses
+      * for font_{width,height}.
+@@ -2438,6 +2467,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
+                           conf_get_int(wgs->conf, CONF_savelines));
+ 
+             /* Enable or disable the scroll bar, etc */
++#ifdef PUTTYNG
++            if (!hwnd_parent)
++#endif
+             {
+                 LONG nflg, flag = GetWindowLongPtr(hwnd, GWL_STYLE);
+                 LONG nexflag, exflag =
+@@ -2736,6 +2768,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
+             wgs->last_wm_mousemove_wParam = wParam;
+             wgs->last_wm_mousemove_lParam = lParam;
+         }
++#ifdef PUTTYNG
++        {
++            GUITHREADINFO thread_info;
++            thread_info.cbSize = sizeof(thread_info);
++            GetGUIThreadInfo(0, &thread_info);
++            hwnd_last_active = thread_info.hwndActive;
++        }
++#endif
+         /*
+          * Add the mouse position and message time to the random
+          * number noise.
+@@ -2885,7 +2925,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
+       case WM_DONE_WITH_SOCKET:
+         winselgui_response(message, wParam, lParam);
+         return 0;
++#ifdef PUTTYNG
++      case WM_MOUSEACTIVATE:
++        if (hwnd_parent && hwnd_last_active != hwnd_parent_main)
++            BringWindowToTop(hwnd_parent_main);
++        /* fall through */
++#endif
+       case WM_SETFOCUS:
++#ifdef PUTTYNG
++        if (!wgs->term) break;
++#endif
+         term_set_focus(wgs->term, true);
+         CreateCaret(hwnd, wgs->caretbm, wgs->font_width, wgs->font_height);
+         ShowCaret(hwnd);
+@@ -3015,10 +3064,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
+         wgs->fullscr_on_max = true;
+         break;
+       case WM_MOVE:
++#ifdef PUTTYNG
++        if (!wgs->term) break;
++#endif
+         term_notify_window_pos(wgs->term, LOWORD(lParam), HIWORD(lParam));
+         sys_cursor_update(wgs);
+         break;
+       case WM_SIZE:
++#ifdef PUTTYNG
++        if (!wgs->term) break;
++        if (hwnd_parent) {
++            wParam = SIZE_MAXIMIZED;
++            wgs->was_zoomed = false;
++        }
++#endif
+         resize_action = conf_get_int(wgs->conf, CONF_resize_action);
+         term_notify_minimised(wgs->term, wParam == SIZE_MINIMIZED);
+         {
