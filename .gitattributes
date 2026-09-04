@@ -1,0 +1,4 @@
+# Patch files must be checked out byte-for-byte. With core.autocrlf=true git would
+# otherwise rewrite them to CRLF on checkout, putting a stray CR on every context and
+# added line and making `git apply` fail on a fresh clone.
+*.patch -text

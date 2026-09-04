@@ -1,0 +1,21 @@
+diff --git a/.gitignore b/.gitignore
+index a42f0858..ecbc51f2 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,13 +2,16 @@
+ *.pyc
+ *.vcxproj
+ *.vcxproj.filters
++*.slnx
+ .ninja_deps
+ .ninja_log
+ build.ninja
+ /CMakeCache.txt
+ CMakeFiles/
+ Debug/
++Release/
+ Win32/
++x64/
+ cmake_install.cmake
+ /shipped.txt
+ *.dir/
