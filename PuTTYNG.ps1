@@ -133,6 +133,16 @@ if (Test-Path -LiteralPath $workFolder) {
     (Get-Content $workFile).Replace('-Unidentified-Local-Build', '-Release-mRemoteNG-Build') | Set-Content $workFile
     (Get-Content $workFile).Replace('0,0,0,0', $setNewVersion) | Set-Content $workFile
     Write-Host "Code block replaced successfully in '$workFile'."
+
+    # Fix InternalName: PuTTY uses APPNAME macro for InternalName in the .rc resource.
+    # Patch version.h to define a custom APPNAME so the compiled exe reports "PuTTYNG"
+    # instead of "PuTTY". This is needed for mRemoteNG's PuttyTypeDetector to identify
+    # the embedded PuTTYNG and enable -hwndparent (embedded window mode).
+    $versionContent = Get-Content $workFile -Raw
+    if ($versionContent -notmatch 'PUTTYNG_APPNAME') {
+        Add-Content $workFile "`n/* Override InternalName for mRemoteNG detection */`n#define APPNAME `"PuTTYNG`"`n"
+        Write-Host "Added APPNAME override to '$workFile'."
+    }
     #===================================================================================================
 
     #Add mRemoteNG required changes
