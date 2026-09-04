@@ -6,7 +6,7 @@ in filename order.
 | Patch | Target | Purpose |
 | --- | --- | --- |
 | `0001-cmdline-mremoteng-options.patch` | `cmdline.c` | Adds the `-hwndparent` and `-auth-plugin` / `-auth_plugin` command line options, guarded by `#ifdef PUTTYNG`. |
-| `0002-putty-h-hwnd-parent.patch` | `putty.h` | Declares `hwnd_parent` and forces `IsZoomed()` to true so the embedded window always behaves as maximised. |
+| `0002-putty-h-hwnd-parent.patch` | `putty.h`, `windows/window.c` | Declares `hwnd_parent` as `extern` in the header (defined once in `windows/window.c`) and forces `IsZoomed()` to true so the embedded window always behaves as maximised. |
 | `0003-window-inline-error-output.patch` | `windows/window.c` | Writes fatal and non-fatal errors into the terminal instead of raising a modal `MessageBox`, which would otherwise block an embedded session. |
 | `0004-gitignore-build-artifacts.patch` | `.gitignore` | Ignores the in-source CMake build output (`Release/`, `x64/`, `*.slnx`). |
 

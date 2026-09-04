@@ -7,10 +7,25 @@ index 697892cf..b184bf28 100644
  extern const char *const appname;
  
 +    #ifdef PUTTYNG
-+    int hwnd_parent;
++    extern int hwnd_parent;
 +    #define IsZoomed(hWnd) TRUE
 +    #endif // PUTTYNG
 +
  /*
   * Used by callback.c; declared up here so that prompts_t can use it
   */
+diff --git a/windows/window.c b/windows/window.c
+index 37a20e8e..779eaa41 100644
+--- a/windows/window.c
++++ b/windows/window.c
+@@ -22,6 +22,10 @@
+ #include "win-gui-seat.h"
+ #include "tree234.h"
+ 
++#ifdef PUTTYNG
++int hwnd_parent;
++#endif // PUTTYNG
++
+ #ifdef NO_MULTIMON
+ #include <multimon.h>
+ #endif
