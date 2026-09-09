@@ -15,8 +15,6 @@ alongside a `SHA256SUMS.txt` you can check the download against:
 Get-FileHash .\PuTTYNG-<version>-x64.exe -Algorithm SHA256
 ```
 
-The binary is not code signed, so Windows SmartScreen will warn the first time you run it.
-
 Each release also carries `PuTTY-LICENCE.txt`. See [Licence](#licence) below.
 
 ## Building it yourself
