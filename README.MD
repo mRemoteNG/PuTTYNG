@@ -73,17 +73,6 @@ All the C changes sit behind `#ifdef PUTTYNG`, so a build without that define pr
 PuTTY. See [`patches/README.md`](patches/README.md) for how to refresh a patch after an
 upstream release.
 
-## Continuous integration
-
-[`.github/workflows/build.yml`](.github/workflows/build.yml) builds on `windows-latest` by
-running `PuTTYNG.ps1`, so CI and local builds share one definition. Every run uploads the exe
-and its checksum as a build artifact; pushing a `v*` tag publishes them as a release. The
-workflow also asserts the mRemoteNG option strings are present in the built binary, because a
-build that loses the `PUTTYNG` define would otherwise succeed while silently producing stock
-PuTTY.
-
-A manual build can be run from the Actions tab, optionally against a specific upstream PuTTY ref.
-
 ## Licence
 
 PuTTY is MIT licensed, copyright Simon Tatham and contributors. The MIT licence requires the
